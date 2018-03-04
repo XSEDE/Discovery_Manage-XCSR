@@ -1,0 +1,12 @@
+{
+    "DESTINATION": "warehouse",
+    "CONTACT_INFO_URL": "https://software.xsede.org/xcsr-db/v1/support-contacts",
+    "VENDOR_COMPONENT_URL": "",
+    "PACKAGED_COMPONENT_URL": "",
+    "OPERATIONAL_COMPONENT_URL": "",
+    "XSEDE_COMPONENT_URL": "https://software.xsede.org/xcsr-db/v1/components",
+    "LOG_FILE": "/soft/warehouse-apps-1.0/Manage-XCSR/var/route_xcsr.log",
+    "LOG_LEVEL": "warning",
+    "RUN_DIR": "/soft/warehouse-apps-1.0/Manage-XCSR/var",
+    "PID_FILE": "/soft/warehouse-apps-1.0/Manage-XCSR/var/route_xcsr.pid"
+}

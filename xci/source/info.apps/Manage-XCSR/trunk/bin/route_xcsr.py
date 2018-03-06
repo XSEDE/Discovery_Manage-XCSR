@@ -27,9 +27,9 @@ from django.db import DataError, IntegrityError
 from django.utils.dateparse import parse_datetime
 from glue2_db.models import *
 from processing_status.process import ProcessingActivity
+import pdb
 
 from daemon import runner
-import pdb
 
 class UTC(tzinfo):
     def utcoffset(self, dt):
@@ -137,7 +137,7 @@ class HandleXCSR():
                 sys.exit(1)
             self.src['path'] = self.src['path'][2:]
         self.src['uri'] = self.args.src
-        self.src['type'] = 'usersupport'        # The only type we handle currently
+        self.src['contype'] = 'usersupport'        # The only contact type we handle currently
 
         if not getattr(self.args, 'dest', None): # Tests for None and empty ''
             if 'DESTINATION' in self.config:
@@ -174,7 +174,7 @@ class HandleXCSR():
                 name = os.path.basename(__file__).replace('.py', '')
                 self.pidfile_path =  '/var/run/{}/{}.pid'.format(name ,name)
 
-    def Retrieve_XCSR(self, type, url):
+    def Retrieve_XCSR(self, contype, url):
         idx = url.find(':')
         if idx <= 0:
             self.logger.error('Retrieve URL is not valid')
@@ -215,7 +215,7 @@ class HandleXCSR():
         conn.request('GET', path, None , headers)
         self.logger.debug('HTTP GET  {}'.format(url))
         response = conn.getresponse()
-        result = response.read()
+        result = response.read().decode("utf-8-sig")
         self.logger.debug('HTTP RESP {} {} (returned {}/bytes)'.format(response.status, response.reason, len(result)))
         try:
             xcsr_obj = json.loads(result)
@@ -223,15 +223,15 @@ class HandleXCSR():
             self.logger.error('Response not in expected JSON format ({})'.format(e))
             return(None)
         else:
-            return({type: xcsr_obj})
+            return({contype: xcsr_obj})
 
-    def Analyze_XCSR(self, type, xcsr_obj):
-        if type not in xcsr_obj:
-            self.logger.error('XCSR JSON response is missing the base \'{}\' element'.format(type))
+    def Analyze_XCSR(self, contype, xcsr_obj):
+        if contype not in xcsr_obj:
+            self.logger.error('XCSR JSON response is missing the base \'{}\' element'.format(contype))
             self.stats['Skip'] += 1
             sys.exit(1)
         maxlen = {}
-        for p_res in xcsr_obj[type]:  # Parent resources
+        for p_res in xcsr_obj[contype]:  # Parent resources
             if any(x not in p_res for x in ('project_affiliation', 'resource_id', 'info_resourceid')) \
                     or p_res['project_affiliation'] != 'XSEDE' \
                     or str(p_res['info_resourceid']).lower() == 'none' \
@@ -282,29 +282,28 @@ class HandleXCSR():
         self.logger.info('Serialized and wrote {} bytes to file={}'.format(len(data), file))
         return(len(data))
 
-    def Read_Cache(self, type, file):
+    def Read_Cache(self, contype, file):
         with open(file, 'r') as my_file:
             data = my_file.read()
             my_file.close()
         try:
             xcsr_obj = json.loads(data)
             self.logger.info('Read and parsed {} bytes from file={}'.format(len(data), file))
-            return({type: xcsr_obj})
+            return({contype: xcsr_obj})
         except ValueError, e:
             self.logger.error('Error "{}" parsing file={}'.format(e, file))
             sys.exit(1)
 
-    def Warehouse_XCSR(self, type, xcsr_obj):
-        pdb.set_trace()
-        if type not in xcsr_obj:
+    def Warehouse_XCSR(self, contype, xcsr_obj):
+        if contype not in xcsr_obj:
             self.stats['Skip'] += 1
-            msg = 'XCSR JSON response is missing a \'{}\' element'.format(type)
+            msg = 'XCSR JSON response is missing a \'{}\' element'.format(contype)
             self.logger.error(msg)
             return(False, msg)
 
         self.cur = {}   # Resources currently in database
         self.new = {}   # New resources in document
-        for item in Contact.objects.filter(Type=type):
+        for item in Contact.objects.filter(Type=contype):
             self.cur[item.ID] = item
 
         now_utc = datetime.now(utc)
@@ -312,24 +311,30 @@ class HandleXCSR():
                     'ContactEmail': 'e-mail',
                     'ContactPhone': 'phone'}
 
-        for p_res in xcsr_obj[type]:
+        for p_res in xcsr_obj[contype]:
             for field in field_to_method_map:
                 if len(p_res.get(field, '') or '') < 1: # Exclude null, empty
                     continue
                 method = field_to_method_map[field]
+
                 ID='urn:glue2:Contact:{}:{}'.format(method, p_res['GlobalID'])
+
                 if field == 'ContactEmail':
+                    Name = p_res['Name'] + ' (e-mail)'
                     Detail = 'mailto:{}'.format(p_res[field])
                 elif field == 'ContactPhone':
+                    Name = p_res['Name'] + ' (phone)'
                     if p_res[field][:1] == '+':
                         Detail = 'tel:{}'.format(p_res[field])
                     else:
                         Detail = 'tel:+{}'.format(p_res[field])
                 else: # field == 'ContactURL' and for default
+                    Name = p_res['Name'] + ' (web)'
                     Detail = p_res[field]
+
                 try:
                     model = Contact(ID=ID,
-                                    Name=p_res['Name'],
+                                    Name=Name,
                                     CreationTime=now_utc,
                                     Validity=None,
                                     EntityJSON=p_res,
@@ -337,7 +342,7 @@ class HandleXCSR():
                                     Type=method,
                                     )
                     model.save()
-                    self.logger.debug('{} ID={}'.format(type, ID))
+                    self.logger.debug('{} ID={}'.format(contype, ID))
                     self.new[ID]=model
                     self.stats['Update'] += 1
                 except (DataError, IntegrityError) as e:
@@ -431,23 +436,23 @@ class HandleXCSR():
             }
             
             if self.src['scheme'] == 'file':
-                XCSR = self.Read_Cache(self.src['type'], self.src['path'])
+                XCSR = self.Read_Cache(self.src['contype'], self.src['path'])
             else:
-                XCSR = self.Retrieve_XCSR(self.src['type'], self.src['uri'])
+                XCSR = self.Retrieve_XCSR(self.src['contype'], self.src['uri'])
 
             if self.dest['scheme'] == 'file':
                 bytes = self.Write_Cache(self.dest['path'], XCSR)
             elif self.dest['scheme'] == 'analyze':
-                self.Analyze_XCSR(self.src['type'], XCSR)
+                self.Analyze_XCSR(self.src['contype'], XCSR)
             elif self.dest['scheme'] == 'warehouse':
                 pa_application=os.path.basename(__file__)
                 pa_function='Warehouse_XCSR'
 #                pa_id = self.src['uri']
                 pa_id = 'xcsr'
-                pa_topic = self.src['type']
+                pa_topic = self.src['contype']
                 pa_about = 'xsede.org'
                 pa = ProcessingActivity(pa_application, pa_function, pa_id , pa_topic, pa_about)
-                (rc, warehouse_msg) = self.Warehouse_XCSR(self.src['type'], XCSR)
+                (rc, warehouse_msg) = self.Warehouse_XCSR(self.src['contype'], XCSR)
             
             self.end = datetime.now(utc)
             summary_msg = 'Processed in {:.3f}/seconds: {}/updates, {}/deletes, {}/skipped'.format((self.end - self.start).total_seconds(), self.stats['Update'], self.stats['Delete'], self.stats['Skip'])

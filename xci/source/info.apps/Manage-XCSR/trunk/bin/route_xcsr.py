@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-
-# Process RDR2 information from a source (http, https, file) to a destination (analyze display, file, warehouse)
-# Can also subscribe from AMQP
+#
+# Synchronize information between the XCSR and the Warehouse:
+# 1) XCSR Support Contacts to glue2.Contact
 #
 # TODO:
 #  ...
@@ -25,7 +25,7 @@ import django
 django.setup()
 from django.db import DataError, IntegrityError
 from django.utils.dateparse import parse_datetime
-from rdr_db.models import *
+from glue2_db.models import *
 from processing_status.process import ProcessingActivity
 
 from daemon import runner
@@ -40,7 +40,7 @@ class UTC(tzinfo):
         return timedelta(0)
 utc = UTC()
 
-class HandleRDR():
+class HandleXCSR():
     def __init__(self):
         self.args = None
         self.config = {}
@@ -60,21 +60,19 @@ class HandleRDR():
                             'project_affiliation', 'provider_level',
                             'resource_status', 'current_statuses', 'updated_at']
 
-        default_file = 'file:./rdr.json'
+        default_file = 'file:./xcsr.json'
 
         parser = argparse.ArgumentParser(epilog='File SRC|DEST syntax: file:<file path and name')
         parser.add_argument('daemon_action', nargs='?', choices=('start', 'stop', 'restart'), \
                             help='{start, stop, restart} daemon')
         parser.add_argument('-s', '--source', action='store', dest='src', \
                             help='Messages source {file, http[s]} (default=file)')
-#        parser.add_argument('-a', '--subscribe', action='store', dest='sub', \
-#                            help='Messages subscribe from AMQP')
         parser.add_argument('-d', '--destination', action='store', dest='dest', \
                             help='Message destination {file, analyze, or warehouse} (default=analyze)')
         parser.add_argument('-l', '--log', action='store', \
                             help='Logging level (default=warning)')
-        parser.add_argument('-c', '--config', action='store', default='./route_rdr.conf', \
-                            help='Configuration file default=./route_rdr.conf')
+        parser.add_argument('-c', '--config', action='store', default='./route_xcsr.conf', \
+                            help='Configuration file default=./route_xcsr.conf')
         parser.add_argument('--verbose', action='store_true', \
                             help='Verbose output')
         parser.add_argument('--daemon', action='store_true', \
@@ -121,8 +119,8 @@ class HandleRDR():
 
         # Verify arguments and parse compound arguments
         if not getattr(self.args, 'src', None): # Tests for None and empty ''
-            if 'RDR_INFO_URL' in self.config:
-                self.args.src = self.config['RDR_INFO_URL']
+            if 'CONTACT_INFO_URL' in self.config:
+                self.args.src = self.config['CONTACT_INFO_URL']
         if not getattr(self.args, 'src', None): # Tests for None and empty ''
             self.args.src = default_file
         idx = self.args.src.find(':')
@@ -139,6 +137,7 @@ class HandleRDR():
                 sys.exit(1)
             self.src['path'] = self.src['path'][2:]
         self.src['uri'] = self.args.src
+        self.src['type'] = 'usersupport'        # The only type we handle currently
 
         if not getattr(self.args, 'dest', None): # Tests for None and empty ''
             if 'DESTINATION' in self.config:
@@ -175,7 +174,7 @@ class HandleRDR():
                 name = os.path.basename(__file__).replace('.py', '')
                 self.pidfile_path =  '/var/run/{}/{}.pid'.format(name ,name)
 
-    def Retrieve_RDR(self, url):
+    def Retrieve_XCSR(self, type, url):
         idx = url.find(':')
         if idx <= 0:
             self.logger.error('Retrieve URL is not valid')
@@ -204,10 +203,11 @@ class HandleRDR():
             port = '443'
         else:
             port = '80'
-        
-        headers = {'Content-type': 'application/json',
-                    'XA-CLIENT': 'XSEDE',
-                    'XA-KEY-FORMAT': 'underscore'}
+      
+        headers = {}
+#        headers = {'Content-type': 'application/json',
+#                    'XA-CLIENT': 'XSEDE',
+#                    'XA-KEY-FORMAT': 'underscore'}
         ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         conn = httplib.HTTPSConnection(host=host, port=port, context=ctx)
         if path[0] != '/':
@@ -218,20 +218,20 @@ class HandleRDR():
         result = response.read()
         self.logger.debug('HTTP RESP {} {} (returned {}/bytes)'.format(response.status, response.reason, len(result)))
         try:
-            rdr_obj = json.loads(result)
+            xcsr_obj = json.loads(result)
         except ValueError, e:
             self.logger.error('Response not in expected JSON format ({})'.format(e))
             return(None)
         else:
-            return(rdr_obj)
+            return({type: xcsr_obj})
 
-    def Analyze_RDR(self, rdr_obj):
-        if 'resources' not in rdr_obj:
-            self.logger.error('RDR JSON response is missing the base \'resources\' element')
+    def Analyze_XCSR(self, type, xcsr_obj):
+        if type not in xcsr_obj:
+            self.logger.error('XCSR JSON response is missing the base \'{}\' element'.format(type))
             self.stats['Skip'] += 1
             sys.exit(1)
         maxlen = {}
-        for p_res in rdr_obj['resources']:  # Parent resources
+        for p_res in xcsr_obj[type]:  # Parent resources
             if any(x not in p_res for x in ('project_affiliation', 'resource_id', 'info_resourceid')) \
                     or p_res['project_affiliation'] != 'XSEDE' \
                     or str(p_res['info_resourceid']).lower() == 'none' \
@@ -274,139 +274,81 @@ class HandleRDR():
         for x in maxlen:
             self.logger.debug('Max({})={}'.format(x, maxlen[x]))
 
-    def Write_Cache(self, file, rdr_obj):
-        data = json.dumps(rdr_obj)
+    def Write_Cache(self, file, xcsr_obj):
+        data = json.dumps(xcsr_obj)
         with open(file, 'w') as my_file:
             my_file.write(data)
             my_file.close()
         self.logger.info('Serialized and wrote {} bytes to file={}'.format(len(data), file))
         return(len(data))
 
-    def Read_Cache(self, file):
+    def Read_Cache(self, type, file):
         with open(file, 'r') as my_file:
             data = my_file.read()
             my_file.close()
         try:
-            rdr_obj = json.loads(data)
+            xcsr_obj = json.loads(data)
             self.logger.info('Read and parsed {} bytes from file={}'.format(len(data), file))
-            return(rdr_obj)
+            return({type: xcsr_obj})
         except ValueError, e:
             self.logger.error('Error "{}" parsing file={}'.format(e, file))
             sys.exit(1)
 
-    def Warehouse_RDR(self, rdr_obj):
-        if 'resources' not in rdr_obj:
+    def Warehouse_XCSR(self, type, xcsr_obj):
+        pdb.set_trace()
+        if type not in xcsr_obj:
             self.stats['Skip'] += 1
-            msg = 'RDR JSON response is missing a \'resources\' element'
+            msg = 'XCSR JSON response is missing a \'{}\' element'.format(type)
             self.logger.error(msg)
             return(False, msg)
 
-        id_lookup = {'compute_resources':   'compute_resource_id',
-                    'other_resources':     'other_resource_id',
-                    'grid_resources':      'grid_resource_id',
-                    'storage_resources':   'storage_resource_id',
-                }
-        type_lookup = {'compute_resources': 'compute',
-                    'other_resources':     'other',
-                    'grid_resources':      'grid',
-                    'storage_resources':   'storage',
-                }
-
         self.cur = {}   # Resources currently in database
         self.new = {}   # New resources in document
-        for item in RDRResource.objects.all():
-            self.cur[item.rdr_resource_id] = item
+        for item in Contact.objects.filter(Type=type):
+            self.cur[item.ID] = item
 
-        for p_res in rdr_obj['resources']:
-            # Require affiliation=XSEDE, a resource_id, and an information services ResourceID
-            if any(x not in p_res for x in ('project_affiliation', 'resource_id', 'info_resourceid')) \
-                    or p_res['project_affiliation'] != 'XSEDE' \
-                    or str(p_res['info_resourceid']).lower() == 'none' \
-                    or p_res['info_resourceid'] == '':
-                self.stats['Skip'] += 1
-                continue
+        now_utc = datetime.now(utc)
+        field_to_method_map = {'ContactURL': 'web',
+                    'ContactEmail': 'e-mail',
+                    'ContactPhone': 'phone'}
 
-            # Attributes that don't have their own model field get put in the other_attributes field
-            other_attributes=p_res.copy()
-            self.sub = {}   # Sub-resource attributes go here
-            for subtype in ['compute_resources', 'storage_resources', 'grid_resources', 'other_resources']:
-                if subtype in p_res:
-                    self.sub[subtype]=p_res[subtype]
-                    other_attributes.pop(subtype, None)
-            for attrib in self.have_column:
-                other_attributes.pop(attrib, None)
-
-            p_latest_status = self.latest_status(p_res['current_statuses'])
-            try:
-                model = RDRResource(rdr_resource_id=p_res['resource_id'],
-                                    info_resourceid=p_res['info_resourceid'],
-                                    info_siteid=p_res['info_resourceid'][p_res['info_resourceid'].find('.')+1:],
-                                    rdr_type='resource',
-                                    resource_descriptive_name=p_res['resource_descriptive_name'],
-                                    resource_description=p_res['resource_description'],
-                                    resource_status=p_res['resource_status'],
-                                    current_statuses=', '.join(p_res['current_statuses']),
-                                    latest_status=p_latest_status,
-                                    latest_status_begin=self.latest_status_date(p_res['resource_status'], p_latest_status, 'begin'),
-                                    latest_status_end=self.latest_status_date(p_res['resource_status'], p_latest_status, 'end'),
-                                    parent_resource=None,
-                                    recommended_use=None,
-                                    access_description=None,
-                                    project_affiliation=p_res['project_affiliation'],
-                                    provider_level=p_res['provider_level'],
-                                    other_attributes=other_attributes,
-                                    updated_at=p_res['updated_at'],
+        for p_res in xcsr_obj[type]:
+            for field in field_to_method_map:
+                if len(p_res.get(field, '') or '') < 1: # Exclude null, empty
+                    continue
+                method = field_to_method_map[field]
+                ID='urn:glue2:Contact:{}:{}'.format(method, p_res['GlobalID'])
+                if field == 'ContactEmail':
+                    Detail = 'mailto:{}'.format(p_res[field])
+                elif field == 'ContactPhone':
+                    if p_res[field][:1] == '+':
+                        Detail = 'tel:{}'.format(p_res[field])
+                    else:
+                        Detail = 'tel:+{}'.format(p_res[field])
+                else: # field == 'ContactURL' and for default
+                    Detail = p_res[field]
+                try:
+                    model = Contact(ID=ID,
+                                    Name=p_res['Name'],
+                                    CreationTime=now_utc,
+                                    Validity=None,
+                                    EntityJSON=p_res,
+                                    Detail=Detail,
+                                    Type=method,
                                     )
-                model.save()
-                self.logger.debug('Base ID={}, ResourceID={}'.format(p_res['resource_id'], p_res['info_resourceid']))
-                self.new[p_res['resource_id']]=model
-                self.stats['Update'] += 1
-            except (DataError, IntegrityError) as e:
-                msg = '{} saving resource_id={} ({}): {}'.format(type(e).__name__, p_res['resource_id'], p_res['info_resourceid'], e.message)
-                self.logger.error(msg)
-                return(False, msg)
-
-            for subtype in self.sub:
-                for s_res in self.sub[subtype]:
-                    other_attributes=s_res.copy()
-                    for attrib in [id_lookup[subtype], 'info_resourceid', 'parent_resource',
-                              'resource_descriptive_name', 'resource_description', 'access_description',
-                              'recommended_use', 'resource_status', 'current_statuses', 'updated_at']:
-                        other_attributes.pop(attrib, None)
-                    s_latest_status = self.latest_status(s_res['current_statuses'])
-                    try:
-                        model = RDRResource(rdr_resource_id=s_res[id_lookup[subtype]],
-                                            info_resourceid=s_res['info_resourceid'],
-                                            info_siteid=s_res['info_resourceid'][s_res['info_resourceid'].find('.')+1:],
-                                            rdr_type=type_lookup[subtype],
-                                            resource_descriptive_name=s_res['resource_descriptive_name'],
-                                            resource_description=s_res['resource_description'],
-                                            resource_status=s_res['resource_status'],
-                                            current_statuses=', '.join(s_res['current_statuses']),
-                                            latest_status=s_latest_status,
-                                            latest_status_begin=self.latest_status_date(s_res['resource_status'], s_latest_status, 'begin'),
-                                            latest_status_end=self.latest_status_date(s_res['resource_status'], s_latest_status, 'end'),
-                                            parent_resource=s_res['parent_resource']['resource_id'],
-                                            recommended_use=s_res['recommended_use'],
-                                            access_description=s_res['access_description'],
-                                            project_affiliation=s_res.get('project_affiliation', p_res['project_affiliation']),
-                                            provider_level=s_res.get('provider_level', p_res['provider_level']),
-                                            other_attributes=other_attributes,
-                                            updated_at=s_res['updated_at'],
-                                            )
-                        model.save()
-                        self.logger.debug(' Sub ID={}, ResourceID={}, Type={}'.format(s_res[id_lookup[subtype]], s_res['parent_resource']['info_resourceid'], type_lookup[subtype]))
-                        self.new[s_res[id_lookup[subtype]]]=model
-                        self.stats['Update'] += 1
-                    except (DataError, IntegrityError) as e:
-                        msg = '{} saving resource_id={} ({}): {}'.format(type(e).__name__, s_res[id_lookup[subtype]], s_res['info_resourceid'], e.message)
-                        self.logger.error(msg)
-                        return(False, msg)
+                    model.save()
+                    self.logger.debug('{} ID={}'.format(type, ID))
+                    self.new[ID]=model
+                    self.stats['Update'] += 1
+                except (DataError, IntegrityError) as e:
+                    msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e.message)
+                    self.logger.error(msg)
+                    return(False, msg)
 
         for id in self.cur:
             if id not in self.new:
                 try:
-                    RDRResource.objects.filter(rdr_resource_id=id).delete()
+                    Contact.objects.filter(ID=id).delete()
                     self.stats['Delete'] += 1
                     self.logger.info('Deleted ID={}'.format(id))
                 except (DataError, IntegrityError) as e:
@@ -475,19 +417,6 @@ class HandleRDR():
                 self.logger.info('REFRESH TRIGGER: Stale {}/seconds above thresdhold of {}/seconds'.format(since_last_run.seconds, self.max_stale) )
                 return
 
-            # If recent database update
-            if 'RDR_LAST_URL' in self.config and self.config['RDR_LAST_URL']:
-                ts_json = self.Retrieve_RDR(self.config['RDR_LAST_URL'])
-            try:
-                last_db_update = parse_datetime(ts_json['last_update_time'])
-                self.logger.info('Last DB update at {} with last refresh at {}'.format(last_db_update, last_run))
-                if last_db_update > last_run:
-                    self.logger.info('REFRESH TRIGGER: DB update since last run')
-                    return
-            except Exception as e:
-                self.logger.error('{} parsing last_update_time={}: {}'.format(type(e).__name__, ts_json['last_update_time'], e.message))
-                last_db_update = None
-
     def run(self):
         signal.signal(signal.SIGINT, self.exit_signal)
         signal.signal(signal.SIGTERM, self.exit_signal)
@@ -502,23 +431,23 @@ class HandleRDR():
             }
             
             if self.src['scheme'] == 'file':
-                RDR = self.Read_Cache(self.src['path'])
+                XCSR = self.Read_Cache(self.src['type'], self.src['path'])
             else:
-                RDR = self.Retrieve_RDR(self.src['uri'])
+                XCSR = self.Retrieve_XCSR(self.src['type'], self.src['uri'])
 
             if self.dest['scheme'] == 'file':
-                bytes = self.Write_Cache(self.dest['path'], RDR)
+                bytes = self.Write_Cache(self.dest['path'], XCSR)
             elif self.dest['scheme'] == 'analyze':
-                self.Analyze_RDR(RDR)
+                self.Analyze_XCSR(self.src['type'], XCSR)
             elif self.dest['scheme'] == 'warehouse':
                 pa_application=os.path.basename(__file__)
-                pa_function='Warehouse_RDR'
+                pa_function='Warehouse_XCSR'
 #                pa_id = self.src['uri']
-                pa_id = 'rdr'
-                pa_topic = 'rdr'
+                pa_id = 'xcsr'
+                pa_topic = self.src['type']
                 pa_about = 'xsede.org'
                 pa = ProcessingActivity(pa_application, pa_function, pa_id , pa_topic, pa_about)
-                (rc, warehouse_msg) = self.Warehouse_RDR(RDR)
+                (rc, warehouse_msg) = self.Warehouse_XCSR(self.src['type'], XCSR)
             
             self.end = datetime.now(utc)
             summary_msg = 'Processed in {:.3f}/seconds: {}/updates, {}/deletes, {}/skipped'.format((self.end - self.start).total_seconds(), self.stats['Update'], self.stats['Delete'], self.stats['Skip'])
@@ -533,7 +462,7 @@ class HandleRDR():
             self.smart_sleep(self.start)
 
 if __name__ == '__main__':
-    router = HandleRDR()
+    router = HandleXCSR()
     if router.args.daemon_action is None:  # Interactive execution
         myrouter = router.run()
         sys.exit(0)

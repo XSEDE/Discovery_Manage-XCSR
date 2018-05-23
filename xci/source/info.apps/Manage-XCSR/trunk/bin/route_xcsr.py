@@ -52,13 +52,6 @@ class HandleXCSR():
         self.peak_sleep = 10 * 60        # 10 minutes in seconds during peak business hours
         self.off_sleep = 60 * 60         # 60 minutes in seconds during off hours
         self.max_stale = 24 * 60 * 60    # 24 hours in seconds force refresh
-        # These attributes have their own database column
-        # Some fields exist in both parent and sub-resources, while others only in one
-        # Those in one will be left empty in the other, or inherit from the parent
-        self.have_column = ['resource_id', 'info_resourceid',
-                            'resource_descriptive_name', 'resource_description',
-                            'project_affiliation', 'provider_level',
-                            'resource_status', 'current_statuses', 'updated_at']
 
         default_file = 'file:./xcsr.json'
 
@@ -226,53 +219,23 @@ class HandleXCSR():
             return({contype: xcsr_obj})
 
     def Analyze_XCSR(self, contype, xcsr_obj):
-        if contype not in xcsr_obj:
-            self.logger.error('XCSR JSON response is missing the base \'{}\' element'.format(contype))
-            self.stats['Skip'] += 1
-            sys.exit(1)
-        maxlen = {}
-        for p_res in xcsr_obj[contype]:  # Parent resources
-            if any(x not in p_res for x in ('project_affiliation', 'resource_id', 'info_resourceid')) \
-                    or p_res['project_affiliation'] != 'XSEDE' \
-                    or str(p_res['info_resourceid']).lower() == 'none' \
-                    or p_res['info_resourceid'] == '':
-                self.stats['Skip'] += 1
-                continue
-            self.stats['Update'] += 1
-            self.logger.info('ID={}, ResourceID={}, Level="{}", Description="{}"'.format(p_res['resource_id'], p_res['info_resourceid'], p_res['provider_level'], p_res['resource_descriptive_name']))
-            
-            self.sub = {}   # Sub-resource attributes go here
-            for subtype in ['compute_resources', 'storage_resources', 'grid_resources', 'other_resources']:
-                if subtype in p_res:
-                    self.sub[subtype]=p_res[subtype]
-            
-            for x in p_res:
-                if isinstance(p_res[x], dict):
-                    msg='dict({})'.format(len(p_res[x]))
-                elif isinstance(p_res[x], list):
-                    msg='list({})'.format(len(p_res[x]))
-                else:
-                    msg=u'"{}"'.format(p_res[x])
-                if x in self.have_column:
-                    try:
-                        if x not in maxlen or (x in maxlen and maxlen[x] <= len(p_res[x])):
-                            maxlen[x] = len(p_res[x])
-                    except:
-                        pass
-                self.logger.debug(u'  {}={}'.format(x, msg))
-            
-        for subtype in self.sub:
-            for s_res in self.sub[subtype]: # Sub resources
-                for x in s_res:
-                    if x in self.have_column:
-                        try:
-                            if x not in maxlen or (x in maxlen and maxlen[x] <= len(s_res[x])):
-                                maxlen[x] = len(s_res[x])
-                        except:
-                            pass
-
-        for x in maxlen:
-            self.logger.debug('Max({})={}'.format(x, maxlen[x]))
+#        if contype not in xcsr_obj:
+#            self.logger.error('XCSR JSON response is missing the base \'{}\' element'.format(contype))
+#            sys.exit(1)
+#        maxlen = {}
+#        for p_res in xcsr_obj[contype]:  # Parent resources
+#            if any(x not in p_res for x in ('project_affiliation', 'resource_id', 'info_resourceid')) \
+#                    or p_res['project_affiliation'] != 'XSEDE' \
+#                    or str(p_res['info_resourceid']).lower() == 'none' \
+#                    or p_res['info_resourceid'] == '':
+#                self.stats['Skip'] += 1
+#                continue
+#            self.stats['Update'] += 1
+#            self.logger.info('ID={}, ResourceID={}, Level="{}", Description="{}"'.format(p_res['resource_id'], p_res['info_resourceid'], p_res['provider_level'], p_res['resource_descriptive_name']))
+#
+#        for x in maxlen:
+#            self.logger.debug('Max({})={}'.format(x, maxlen[x]))
+        pass
 
     def Write_Cache(self, file, xcsr_obj):
         data = json.dumps(xcsr_obj)
@@ -296,13 +259,59 @@ class HandleXCSR():
 
     def Warehouse_XCSR(self, contype, xcsr_obj):
         if contype not in xcsr_obj:
-            self.stats['Skip'] += 1
             msg = 'XCSR JSON response is missing a \'{}\' element'.format(contype)
             self.logger.error(msg)
             return(False, msg)
 
-        self.cur = {}   # Resources currently in database
-        self.new = {}   # New resources in document
+        ####################################
+        ### AdminDomain
+        ####################################
+        me = 'AdminDomain'
+        self.cur = {}   # Current items
+        self.new = {}   # New items
+        now_utc = datetime.now(utc)
+
+        for item in AdminDomain.objects.all():
+            self.cur[item.ID] = item
+
+        for p_res in xcsr_obj[contype]:
+            ID='urn:glue2:AdminDomain:{}'.format(p_res['GlobalID'])
+            try:
+                model = AdminDomain(ID=ID,
+                                Name=p_res['Name'],
+                                CreationTime=now_utc,
+                                Validity=None,
+                                EntityJSON=p_res,
+                                Description=p_res['Description'],
+                                WWW=p_res['ContactURL'],
+                                Owner=p_res['GlobalID'],
+                                )
+                model.save()
+                self.logger.debug('{} ID={}'.format(contype, ID))
+                self.new[ID]=model
+                self.stats[me + '.Update'] += 1
+            except (DataError, IntegrityError) as e:
+                msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e.message)
+                self.logger.error(msg)
+                return(False, msg)
+
+        for id in self.cur:
+            if id not in self.new:
+                try:
+                    AdminDomain.objects.filter(ID=id).delete()
+                    self.stats[me + '.Delete'] += 1
+                    self.logger.info('Deleted ID={}'.format(id))
+                except (DataError, IntegrityError) as e:
+                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e.message))
+
+        ####################################
+        ### Contact
+        ####################################
+        me = 'Contact'
+        self.cur = {}   # Current items
+        self.new = {}   # New items
+        now_utc = datetime.now(utc)
+
         for item in Contact.objects.filter(Type=contype):
             self.cur[item.ID] = item
 
@@ -344,7 +353,7 @@ class HandleXCSR():
                     model.save()
                     self.logger.debug('{} ID={}'.format(contype, ID))
                     self.new[ID]=model
-                    self.stats['Update'] += 1
+                    self.stats[me + '.Update'] += 1
                 except (DataError, IntegrityError) as e:
                     msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e.message)
                     self.logger.error(msg)
@@ -354,7 +363,7 @@ class HandleXCSR():
             if id not in self.new:
                 try:
                     Contact.objects.filter(ID=id).delete()
-                    self.stats['Delete'] += 1
+                    self.stats[me + '.Delete'] += 1
                     self.logger.info('Deleted ID={}'.format(id))
                 except (DataError, IntegrityError) as e:
                     self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e.message))
@@ -429,11 +438,11 @@ class HandleXCSR():
 
         while True:
             self.start = datetime.now(utc)
-            self.stats = {
-                'Update': 0,
-                'Delete': 0,
-                'Skip': 0,
-            }
+            self.stats = {}
+            for entity in ['AdminDomain', 'Contact']:
+                self.stats[entity + '.Update'] = 0
+                self.stats[entity + '.Delete'] = 0
+                self.stats[entity + '.Skip'] = 0
             
             if self.src['scheme'] == 'file':
                 XCSR = self.Read_Cache(self.src['contype'], self.src['path'])
@@ -455,8 +464,10 @@ class HandleXCSR():
                 (rc, warehouse_msg) = self.Warehouse_XCSR(self.src['contype'], XCSR)
             
             self.end = datetime.now(utc)
-            summary_msg = 'Processed in {:.3f}/seconds: {}/updates, {}/deletes, {}/skipped'.format((self.end - self.start).total_seconds(), self.stats['Update'], self.stats['Delete'], self.stats['Skip'])
-            self.logger.info(summary_msg)
+     
+            for entity in ['AdminDomain', 'Contact']:
+                summary_msg = 'Processed in {:.3f}/seconds: {}/updates, {}/deletes, {}/skipped'.format((self.end - self.start).total_seconds(), self.stats[entity + '.Update'], self.stats[entity + '.Delete'], self.stats[entity + '.Skip'])
+                self.logger.info(summary_msg)
             if self.dest['scheme'] == 'warehouse':
                 if rc:  # No errors
                     pa.FinishActivity(rc, summary_msg)

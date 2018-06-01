@@ -1,11 +1,11 @@
 #!/bin/sh
 do_start () {
-    echo -n "Starting route_xcsr:"
+    echo -n "Starting route_xcsr_support:"
     $PYTHON $DAEMON_BIN start $DAEMON_OPTS
     RETVAL=$?
 }
 do_stop () {
-    echo -n "Stopping route_xcsr:"
+    echo -n "Stopping route_xcsr_support:"
     $PYTHON $DAEMON_BIN stop $DAEMON_OPTS
     RETVAL=$?
 }

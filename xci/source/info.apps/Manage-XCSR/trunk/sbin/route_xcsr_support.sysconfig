@@ -1,6 +1,6 @@
-DAEMON_BIN=/soft/warehouse-apps-1.0/Manage-XCSR/PROD/bin/route_xcsr.py
+DAEMON_BIN=/soft/warehouse-apps-1.0/Manage-XCSR/PROD/bin/route_xcsr_support.py
 # Add any command line options for your daemon here
-DAEMON_OPTS="-l info -c /soft/warehouse-apps-1.0/Manage-XCSR/conf/route_xcsr.conf"
+DAEMON_OPTS="-l info -c /soft/warehouse-apps-1.0/Manage-XCSR/conf/route_xcsr_support.conf"
 
 PYTHON=/soft/python-current/bin/python
 LD_LIBRARY_PATH=/soft/python-current/lib

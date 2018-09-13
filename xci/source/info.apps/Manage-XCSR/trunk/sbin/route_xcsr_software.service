@@ -4,11 +4,11 @@ After=network.target remote-fs.target nss-lookup.target
 
 [Service]
 Type=forking
-EnvironmentFile=/soft/warehouse-apps-1.0/Manage-XCSR/PROD/sbin/route_xcsr_support.sysconfig
+EnvironmentFile=/soft/warehouse-apps-1.0/Manage-XCSR/PROD/sbin/route_xcsr_software.sysconfig
 ExecStart=/soft/warehouse-apps-1.0/Manage-XCSR/PROD/sbin/router_daemon.sh start
 ExecReload=/soft/warehouse-apps-1.0/Manage-XCSR/PROD/sbin/router_daemon.sh restart
 ExecStop=/soft/warehouse-apps-1.0/Manage-XCSR/PROD/sbin/router_daemon.sh stop
-PIDFile=/soft/warehouse-apps-1.0/Manage-XCSR/var/route_xcsr_support.pid
+PIDFile=/soft/warehouse-apps-1.0/Manage-XCSR/var/route_xcsr_software.pid
 #PrivateTmp=true
 User=software
 Group=admin

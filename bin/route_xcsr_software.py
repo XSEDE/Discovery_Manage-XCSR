@@ -1,9 +1,10 @@
-#!/usr/bin/env pipenv run
+#!/usr/bin/env python
 #
 # Warehouse router that synchronizes information from a SOURCE to the WAREHOUSE
-#   SOURCE: XCSR Support Contacts
-#   DESTINATION ENTITIES: glue2.AdminDomain and glue2.Contact
-# Author: JP Navarro, May 2018
+#   SOURCE: XCSR Operational Software
+#   DESTINATION ENTITIES: glue2.{ApplicationEnvironment,ApplicationHandle}
+#       glue2.{AbstractService, Endpoint}
+# Author: JP Navarro, June 2018
 #
 # TODO:
 #  ...
@@ -11,6 +12,10 @@ from __future__ import print_function
 import argparse
 import datetime
 from datetime import datetime, tzinfo, timedelta
+try:
+    import http.client as httplib
+except ImportError:
+    import httplib
 import json
 import logging
 import logging.handlers
@@ -22,12 +27,7 @@ import signal
 import ssl
 import sys
 from time import sleep
-
-try:
-    import http.client as httplib
-except ImportError:
-    import httplib
-from ssl import _create_unverified_context
+from urllib.parse import urlparse
 
 import django
 django.setup()
@@ -63,6 +63,7 @@ class WarehouseRouter():
         self.peak_sleep = peek_sleep * 60       # 10 minutes in seconds during peak business hours
         self.offpeek_sleep = offpeek_sleep * 60 # 60 minutes in seconds during off hours
         self.max_stale = max_stale * 60         # 24 hours in seconds force refresh
+        self.application = os.path.basename(__file__)
 
         parser = argparse.ArgumentParser(epilog='File SRC|DEST syntax: file:<file path and name')
         parser.add_argument('daemon_action', nargs='?', choices=('start', 'stop', 'restart'), \
@@ -315,7 +316,7 @@ class WarehouseRouter():
             elif self.dest['scheme'] == 'warehouse':
                 pa_application=os.path.basename(__file__)
                 pa_function='Write_WAREHOUSE'
-                pa_id = pa_application
+                pa_id = '{} from {}'.format(pa_application, self.src['uri'])
                 pa_topic = self.CONTYPE
                 pa_about = 'xsede.org'
                 pa = ProcessingActivity(pa_application, pa_function, pa_id , pa_topic, pa_about)
@@ -336,31 +337,45 @@ class WarehouseRouter():
             self.smart_sleep(self.start)
 
 ########## CUSTOMIZATIONS START ##########
-    HANDLED_ENTITIES = ['AdminDomain', 'Contact']
-#    CONTYPE = 'usersupport'
-    CONTYPE = 'SoftwareSupport'
+    HANDLED_ENTITIES = ['ApplicationEnvironment', 'ApplicationHandle', 'AbstractService', 'Endpoint']
+    CONTYPE = 'OperationalSoftware'
 
     def Write_WAREHOUSE(self, content):
+        pdb.set_trace()
         if self.CONTYPE not in content:
             msg = 'JSON is missing the \'{}\' element'.format(self.CONTYPE)
             self.logger.error(msg)
             return(False, msg)
         
+        new_service = []
+        for item in self.CONTYPE:
+            if item['AccessType'] != 'Network Service':
+                continue
+            u.urlparse(item['NetworkServiceEndpoints'])
+            
+            new = {'ID': 'urn:glue2:WebService:org.xsede.web:{}'.format(u.netloc),
+                    'ResourceID': 'xes.xsede.org',
+                    'ServiceType': 'WebService',
+                    'Name': u.netloc.split('.')[0],
+                        'Type': 'web.{}'.format(u.netloc.split('.')[0]
+}
+        extensions = {'From_Application': self.application}
+        
         ####################################
-        ### AdminDomain
+        ### AbstractService
         ####################################
-        me = 'AdminDomain'
+        me = 'AbstractService'
         self.cur = {}   # Current items
         self.new = {}   # New items
         now_utc = datetime.now(utc)
 
-        for item in AdminDomain.objects.all():
+        for item in AbstractService.objects.all():
             self.cur[item.ID] = item
 
         for p_res in content[self.CONTYPE]:
-            ID='urn:glue2:AdminDomain:{}'.format(p_res['GlobalID'])
+            ID='urn:glue2:AbstractService:{}'.format(p_res['GlobalID'])
             try:
-                model = AdminDomain(ID=ID,
+                model = AbstractService(ID=ID,
                                 Name=p_res['Name'],
                                 CreationTime=now_utc,
                                 Validity=None,
@@ -381,7 +396,7 @@ class WarehouseRouter():
         for id in self.cur:
             if id not in self.new:
                 try:
-                    AdminDomain.objects.filter(ID=id).delete()
+                    AbstractService.objects.filter(ID=id).delete()
                     self.stats[me + '.Delete'] += 1
                     self.logger.info('Deleted ID={}'.format(id))
                 except (DataError, IntegrityError) as e:

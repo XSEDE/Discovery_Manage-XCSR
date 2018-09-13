@@ -357,8 +357,8 @@ class WarehouseRouter():
                     'ResourceID': 'xes.xsede.org',
                     'ServiceType': 'WebService',
                     'Name': u.netloc.split('.')[0],
-                        'Type': 'web.{}'.format(u.netloc.split('.')[0]
-}
+                    'Type': 'web.{}'.format(u.netloc.split('.')[0]
+                }
         extensions = {'From_Application': self.application}
         
         ####################################

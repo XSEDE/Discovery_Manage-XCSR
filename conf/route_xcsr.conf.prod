@@ -1,0 +1,21 @@
+{
+    "STEPS": [
+            {   "CONTYPE": "SoftwareSupport",
+                "SOURCE": "https://software.xsede.org/xcsr-db/v1/support-contacts",
+                "DESTINATION": "warehouse:Write_DomainContacts"
+            },
+            {   "CONTYPE": "OperationalSoftware",
+                "SOURCE": "https://software.xsede.org/xcsr-db/v1/operational-software",
+                "DESTINATION": "warehouse:Write_NetworkService"
+            },
+            {   "CONTYPE": "ResourceProvider",
+                "SOURCE": "https://software.xsede.org/xcsr-db/v1/gateways",
+                "DESTINATION": "analyze:",
+                "DESTINATION_w": "warehouse:Write_GatewayProvider"
+            }
+    ],
+    "LOG_FILE": "/soft/warehouse-apps-1.0/Manage-XCSR/var/route_xcsr.log",
+    "LOG_LEVEL": "warning",
+    "RUN_DIR": "/soft/warehouse-apps-1.0/Manage-XCSR/var",
+    "PID_FILE": "/soft/warehouse-apps-1.0/Manage-XCSR/var/route_xcsr.pid"
+}

@@ -1,7 +1,7 @@
 #!/bin/sh
 
 ### BEGIN INIT INFO
-# Provides:          route_xcsr_software
+# Provides:          route_xcsr
 # Required-Start:    $remote_fs $syslog
 # Required-Stop:     $remote_fs $syslog
 # Default-Start:     2 3 4 5
@@ -11,7 +11,7 @@
 ### END INIT INFO
 
 # Change these lines to suit where you install your script and what you want to call it
-DAEMON_NAME=route_xcsr_software
+DAEMON_NAME=route_xcsr
 DAEMON_DIR=/soft/warehouse-apps-1.0/Manage-XCSR/PROD
 DAEMON_BIN=$DAEMON_DIR/bin/$DAEMON_NAME.py
 DAEMON_CONF=/soft/warehouse-apps-1.0/Manage-XCSR/conf/$DAEMON_NAME.conf

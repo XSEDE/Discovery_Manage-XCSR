@@ -1,8 +1,0 @@
-{
-    "SOURCE_URL": "https://software.xsede.org/xcsr-db/v1/support-contacts",
-    "DESTINATION": "warehouse",
-    "LOG_FILE": "/soft/warehouse-apps-1.0/Manage-XCSR/var/route_xcsr_software.log",
-    "LOG_LEVEL": "warning",
-    "RUN_DIR": "/soft/warehouse-apps-1.0/Manage-XCSR/var",
-    "PID_FILE": "/soft/warehouse-apps-1.0/Manage-XCSR/var/route_xcsr_software.pid"
-}

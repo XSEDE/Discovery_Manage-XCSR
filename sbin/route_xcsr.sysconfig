@@ -1,6 +1,4 @@
-DAEMON_NAME=route_xcsr
-#
-_EMON_BIN=/soft/warehouse-apps-1.0/Manage-XCSR/PROD/bin/route_xcsr.py
+DAEMON_BIN=/soft/warehouse-apps-1.0/Manage-XCSR/PROD/bin/route_xcsr.py
 # Add any command line options for your daemon here
 DAEMON_OPTS="-l info -c /soft/warehouse-apps-1.0/Manage-XCSR/conf/route_xcsr.conf"
 

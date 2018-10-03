@@ -241,27 +241,13 @@ class WarehouseRouter():
         sys.exit(0)
 
     def smart_sleep(self, last_run):
-        # This functions sleeps, performs refresh checks, and returns when it's time to refresh
-        while True:
-            if 12 <= datetime.now(utc).hour <= 24: # Between 6 AM and 6 PM Central (~12 to 24 UTC)
-                current_sleep = self.peak_sleep
-            else:
-                current_sleep = self.offpeek_sleep
-            self.logger.debug('sleep({})'.format(current_sleep))
-            sleep(current_sleep)
-
-            # Force a refresh every 12 hours at Noon and Midnight UTC
-            now_utc = datetime.now(utc)
-            if ( (now_utc.hour < 12 and last_run.hour > 12) or \
-                (now_utc.hour > 12 and last_run.hour < 12) ):
-                self.logger.info('REFRESH TRIGGER: Every 12 hours')
-                return
-
-            # Force a refresh every max_stale seconds
-            since_last_run = now_utc - last_run
-            if since_last_run.seconds > self.max_stale:
-                self.logger.info('REFRESH TRIGGER: Stale {}/seconds above thresdhold of {}/seconds'.format(since_last_run.seconds, self.max_stale) )
-                return
+        # This functions sleeps
+        if 12 <= datetime.now(utc).hour <= 24: # Between 6 AM and 6 PM Central (~12 to 24 UTC)
+            current_sleep = self.peak_sleep
+        else:
+            current_sleep = self.offpeek_sleep
+        self.logger.debug('sleep({})'.format(current_sleep))
+        sleep(current_sleep)
 
     def run(self):
         while True:

@@ -157,7 +157,7 @@ class WarehouseRouter():
 #                sys.exit(1)
 
         if self.args.daemon_action:
-            mode = 'daemon'
+            mode = 'daemon({})'.format(self.args.daemon_action)
             # Initialize logging, pidfile
             self.stdin_path = '/dev/null'
             if 'LOG_FILE' in self.config:
@@ -297,7 +297,7 @@ class WarehouseRouter():
      
             if not self.args.daemon_action:
                 break
-            self.smart_sleep(self.start)
+            self.smart_sleep(start_utc)
                 
     def log_target(self, me):
         summary_msg = 'Processed {} in {:.3f}/seconds: {}/updates, {}/deletes, {}/skipped'.format(me, self.HANDLED_DURATIONS[me], self.STATS[me + '.Update'], self.STATS[me + '.Delete'], self.STATS[me + '.Skip'])

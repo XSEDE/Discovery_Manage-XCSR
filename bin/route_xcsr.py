@@ -308,8 +308,7 @@ class WarehouseRouter():
         ####################################
         ### AdminDomain
         ####################################
-        me = 'AdminDomain'
-#        jp = sys._getframe().f_code.co_name
+        me = '{} to AdminDomain'.format(sys._getframe().f_code.co_name)
         self.HANDLED_DURATIONS[me] = getattr(self.HANDLED_DURATIONS, me, 0)
         self.cur = {}   # Current items
         self.new = {}   # New items
@@ -354,7 +353,7 @@ class WarehouseRouter():
         ####################################
         ### Contact
         ####################################
-        me = 'Contact'
+        me = '{} to Contact'.format(sys._getframe().f_code.co_name)
         self.HANDLED_DURATIONS[me] = getattr(self.HANDLED_DURATIONS, me, 0)
         self.cur = {}   # Current items
         self.new = {}   # New items
@@ -424,7 +423,7 @@ class WarehouseRouter():
         ####################################
         ### ResourceProvider
         ####################################
-        me = 'ResourceProvider'
+        me = '{} to ResourceProvider'.format(sys._getframe().f_code.co_name)
         self.HANDLED_DURATIONS[me] = getattr(self.HANDLED_DURATIONS, me, 0)
         my_idsuffix = 'urn:glue2:GlobalResourceProvider:Gateway'
         my_affiliation = 'xsede.org'
@@ -474,7 +473,7 @@ class WarehouseRouter():
         ####################################
         ### ResourceProvider
         ####################################
-        me = 'ResourceProvider'
+        me = '{} to ResourceProvider'.format(sys._getframe().f_code.co_name)
         self.HANDLED_DURATIONS[me] = getattr(self.HANDLED_DURATIONS, me, 0)
         my_idsuffix = 'urn:glue2:GlobalResourceProvider:HPC_Provider'
         my_affiliation = 'xsede.org'
@@ -524,7 +523,7 @@ class WarehouseRouter():
         ####################################
         ### Resource
         ####################################
-        me = 'Resource'
+        me = '{} to Resource'.format(sys._getframe().f_code.co_name)
         self.HANDLED_DURATIONS[me] = getattr(self.HANDLED_DURATIONS, me, 0)
         my_idsuffix = 'urn:glue2:NetworkService:XCSR'
         my_affiliation = 'xsede.org'
@@ -588,7 +587,7 @@ class WarehouseRouter():
         ####################################
         ### Resource
         ####################################
-        me = 'Resource'
+        me = '{} to Resource'.format(sys._getframe().f_code.co_name)
         self.HANDLED_DURATIONS[me] = getattr(self.HANDLED_DURATIONS, me, 0)
         my_idsuffix = 'urn:glue2:IPFEndpoint'
         my_affiliation = 'xsede.org'
@@ -656,7 +655,7 @@ class WarehouseRouter():
         ####################################
         ### Resource
         ####################################
-        me = 'Resource'
+        me = '{} to Resource'.format(sys._getframe().f_code.co_name)
         self.HANDLED_DURATIONS[me] = getattr(self.HANDLED_DURATIONS, me, 0)
         my_idsuffix = 'urn:glue2:IPFSoftware'
         my_affiliation = 'xsede.org'
@@ -711,7 +710,7 @@ class WarehouseRouter():
         ####################################
         ### Resource
         ####################################
-        me = 'Resource'
+        me = '{} to Resource'.format(sys._getframe().f_code.co_name)
         self.HANDLED_DURATIONS[me] = getattr(self.HANDLED_DURATIONS, me, 0)
         my_idsuffix = 'urn:glue2:ExecutableSoftware'
         my_affiliation = 'xsede.org'
@@ -774,7 +773,7 @@ class WarehouseRouter():
         ####################################
         ### Resource
         ####################################
-        me = 'Resource'
+        me = '{} to Resource'.format(sys._getframe().f_code.co_name)
         self.HANDLED_DURATIONS[me] = getattr(self.HANDLED_DURATIONS, me, 0)
         my_idsuffix = 'urn:glue2:PackagedSoftware'
         my_affiliation = 'xsede.org'

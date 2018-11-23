@@ -163,7 +163,7 @@ class WarehouseRouter():
                 self.logger.error('Source and Destination can not both be a {file}')
                 sys.exit(1)
             
-            if dsturl.schema == 'warehouse' and not show_warehouse:
+            if dsturl.scheme == 'warehouse' and not show_warehouse:
                 show_warehouse = settings.DATABASES['default']['HOST']
             self.steps.append({'srcurl': srcurl, 'dsturl': dsturl, 'CONTYPE': s['CONTYPE']})
 

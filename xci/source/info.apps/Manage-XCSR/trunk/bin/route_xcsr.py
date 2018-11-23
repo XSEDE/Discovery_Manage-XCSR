@@ -1,17 +1,29 @@
 #!/usr/bin/env python
 #
-# Router to synchronize XCSR information into the WAREHOUSE
-#   *Support Contacts*
-#   !   Write_GLUE2Contacts: Support Contacts -> glue2.{AdminDomain,Contact}
-#   *ResourceProvider*
-#   !   Write_GatewayProviders: Gateways -> ResourceProviders
-#   !   Write_HPCProviders: CSR Site Information -> ResourceProviders (including XSEDE)
-#   *Resource*
-#   !   Write_NetworkService: Operational Software -> Resources
-#   !   Write_OperationalSoftware: Operational Software -> Resources
-#   !   Write_PackagedSoftware: Packaged Software -> Resources
-#   !   Write_GLUE2Service: glue2.{AbstractService, Endpoint}
-#   !   Write_GLUE2Software: glue2.{ApplicationEnvironment, ApplicationHandle}
+# Router to synchronize XCSR manually entered information into the WAREHOUSE
+#   Support Contact -> GLUE2
+#       Write_GLUE2Contacts: CSR Support Contacts -> glue2.{AdminDomain,Contact}
+#
+#   Gateways, Sites -> ResourceProvider
+#       Write_GatewayProviders: CSR Gateways -> ResourceProviders
+#            ID_suffix = 'urn:glue2:GlobalResourceProvider:Gateway' + ':' + DrupalNodeid + '.drupal.xsede.org'
+#       Write_HPCProviders: CSR Site Information -> ResourceProviders (including XSEDE)
+#            ID_suffix = 'urn:glue2:GlobalResourceProvider:HPC_Provider' + ':' + SiteID
+#
+#   Operational Software, Services -> Resources, Glue2
+#       Write_NetworkService: CSR Operational Software -> Resources
+#            ID_suffix = 'urn:glue2:NetworkService:XCSR' + ':' + Endpoint + DrupalNodeid + '.drupal.xsede.org'
+#       Write_GLUE2Service: CSR Operational Software -> glue2.{AbstractService, Endpoint}
+#            ID_suffix = 'urn:glue2:IPFEndpoint' from Resource.ID.replace('Endpoint', 'IPFEndpoint')
+#
+#       Write_OperationalSoftware: CSR Operational Software -> Resources
+#            ID_suffix = 'urn:glue2:ExecutableSoftware' + ':' + HostingResourceID + ':' + ExecutionHandles + ':' + DrupalNodeid + '.drupal.xsede.org'
+#       Write_GLUE2Software: CSR Operational Software -> glue2.{ApplicationEnvironment, ApplicationHandle}
+#            ID_suffix = 'urn:glue2:IPFSoftware' from Resource.ID.replace('ApplicationHandle', 'IPFSoftware')
+#
+#    Packaged Software -> Resources
+#       Write_PackagedSoftware: CSR Packaged Software -> Resources
+#            ID_suffix = 'urn:glue2:PackagedSoftware' + ':' + Title + ':' + 'Version' + ':' + DrupalNodeid + '.drupal.xsede.org'
 #
 # Author: JP Navarro, September 2018
 #
@@ -41,6 +53,7 @@ from urllib.parse import urlparse
 import django
 django.setup()
 from django.db import DataError, IntegrityError
+from django.conf import settings
 from django.utils.dateparse import parse_datetime
 from glue2_db.models import *
 from resource_cat.models import *
@@ -126,6 +139,7 @@ class WarehouseRouter():
         self.logger.addHandler(self.handler)
 
         self.steps = []
+        show_warehouse = None
         for s in self.config['STEPS']:
             try:
                 srcurl = urlparse(s['SOURCE'])
@@ -149,6 +163,8 @@ class WarehouseRouter():
                 self.logger.error('Source and Destination can not both be a {file}')
                 sys.exit(1)
             
+            if dsturl.schema == 'warehouse' and not show_warehouse:
+                show_warehouse = settings.DATABASES['default']['HOST']
             self.steps.append({'srcurl': srcurl, 'dsturl': dsturl, 'CONTYPE': s['CONTYPE']})
 
 #        if self.args.daemon_action == 'start':
@@ -179,6 +195,8 @@ class WarehouseRouter():
         signal.signal(signal.SIGINT, self.exit_signal)
         signal.signal(signal.SIGTERM, self.exit_signal)
         self.logger.info('Starting {}, program={}, pid={}, uid={}({})'.format(mode, os.path.basename(__file__), os.getpid(), os.geteuid(), pwd.getpwuid(os.geteuid()).pw_name))
+        if show_warehouse:
+            self.logger.info('Destination warehouse database={}'.format(settings.DATABASES['default']['HOST']))
 
     def Get_HTTP(self, url, contype):
         headers = {}
@@ -306,6 +324,7 @@ class WarehouseRouter():
         for p_res in content[contype]:
             ID='urn:glue2:AdminDomain:{}'.format(p_res['GlobalID'])
             try:
+                self.tag_from_application(p_res)
                 model = AdminDomain(ID=ID,
                                 Name=p_res['Name'],
                                 CreationTime=start_utc,
@@ -374,6 +393,7 @@ class WarehouseRouter():
                     Detail = p_res[field]
 
                 try:
+                    self.tag_from_application(p_res)
                     model = Contact(ID=ID,
                                     Name=Name,
                                     CreationTime=start_utc,
@@ -810,6 +830,16 @@ class WarehouseRouter():
         self.HANDLED_DURATIONS[me] += (datetime.now(utc) - start_utc).total_seconds()
         self.log_target(me)
         return(0, '')
+
+    def tag_from_application(self, obj):
+        # Tag which application this entry came from so that we can insulate those that came
+        #   from IPF publishing and from the XCSR so that they do not overwrite each other
+        if not isinstance(obj, dict) or not self.application:
+            return
+        if 'Extension' not in obj:
+            obj['Extension'] = {'From_Application': self.application}
+        else:
+            obj['Extension']['From_Application'] = self.application
 
 ########## CUSTOMIZATIONS END ##########
 

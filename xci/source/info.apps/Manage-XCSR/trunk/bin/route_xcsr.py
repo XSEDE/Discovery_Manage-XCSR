@@ -554,7 +554,7 @@ class WarehouseRouter():
                 provider='urn:glue2:GlobalResourceProvider:HPC_Provider:xsede.org'
 
             new_item = item.copy()
-            new_item['record_status'] = '1'
+            new_item['record_status'] = 1
             try:
                 model = Resource(ID=ID,
                                 Name=item['Title'],
@@ -625,7 +625,7 @@ class WarehouseRouter():
                 Keywords=''
             
             new_item = item.copy()
-            new_item['record_status'] = '1'
+            new_item['record_status'] = 1
             try:
                 model = Resource(ID=ID,
                                 Name=Name,
@@ -682,7 +682,7 @@ class WarehouseRouter():
             ID=item['ID'].replace(':ApplicationHandle:', ':IPFSoftware:')
             provider='urn:glue2:GlobalResourceProvider:HPC_Provider:{}'.format(item['ResourceID'].split('.', 1)[1])
             new_item = item.copy()
-            new_item['record_status'] = '1'
+            new_item['record_status'] = 1
             try:
                 model = Resource(ID=ID,
                                 Name=item['AppName'],
@@ -747,7 +747,7 @@ class WarehouseRouter():
                 provider='urn:glue2:GlobalResourceProvider:HPC_Provider:xsede.org'
             
             new_item = item.copy()
-            new_item['record_status'] = '1'
+            new_item['record_status'] = 1
             try:
                 model = Resource(ID=ID,
                                 Name=item['Title'],
@@ -805,7 +805,7 @@ class WarehouseRouter():
             provider=''
             
             new_item = item.copy()
-            new_item['record_status'] = '1'
+            new_item['record_status'] = 1
             try:
                 model = Resource(ID=ID,
                                 Name=item['Title'],

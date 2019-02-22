@@ -553,12 +553,14 @@ class WarehouseRouter():
             else:
                 provider='urn:glue2:GlobalResourceProvider:HPC_Provider:xsede.org'
 
+            new_item = item.copy()
+            new_item['record_status'] = '1'
             try:
                 model = Resource(ID=ID,
                                 Name=item['Title'],
                                 CreationTime=start_utc,
                                 Validity=None,
-                                EntityJSON=item,
+                                EntityJSON=new_item,
                                 Affiliation=my_affiliation,
                                 ProviderID=provider,
                                 Type='NetworkService',
@@ -621,12 +623,15 @@ class WarehouseRouter():
                 Name=''
                 Description=''
                 Keywords=''
+            
+            new_item = item.copy()
+            new_item['record_status'] = '1'
             try:
                 model = Resource(ID=ID,
                                 Name=Name,
                                 CreationTime=start_utc,
                                 Validity=None,
-                                EntityJSON=item,
+                                EntityJSON=new_item,
                                 Affiliation=my_affiliation,
                                 ProviderID=provider,
                                 Type='NetworkService',
@@ -676,12 +681,14 @@ class WarehouseRouter():
             local_id=item['ID']
             ID=item['ID'].replace(':ApplicationHandle:', ':IPFSoftware:')
             provider='urn:glue2:GlobalResourceProvider:HPC_Provider:{}'.format(item['ResourceID'].split('.', 1)[1])
+            new_item = item.copy()
+            new_item['record_status'] = '1'
             try:
                 model = Resource(ID=ID,
                                 Name=item['AppName'],
                                 CreationTime=start_utc,
                                 Validity=None,
-                                EntityJSON=item,
+                                EntityJSON=new_item,
                                 Affiliation=my_affiliation,
                                 ProviderID=provider,
                                 Type='ExecutableSoftware',
@@ -738,13 +745,15 @@ class WarehouseRouter():
                 provider='urn:glue2:GlobalResourceProvider:HPC_Provider:{}'.format(item['HostingResourceID'])
             else:
                 provider='urn:glue2:GlobalResourceProvider:HPC_Provider:xsede.org'
-
+            
+            new_item = item.copy()
+            new_item['record_status'] = '1'
             try:
                 model = Resource(ID=ID,
                                 Name=item['Title'],
                                 CreationTime=start_utc,
                                 Validity=None,
-                                EntityJSON=item,
+                                EntityJSON=new_item,
                                 Affiliation=my_affiliation,
                                 ProviderID=provider,
                                 Type='ExecutableSoftware',
@@ -794,13 +803,15 @@ class WarehouseRouter():
             local_id=item['DrupalNodeid'] + '.drupal.xsede.org'
             ID='{}:{}:{}:{}'.format(my_idsuffix, item['Title'], item['Version'], local_id)
             provider=''
-
+            
+            new_item = item.copy()
+            new_item['record_status'] = '1'
             try:
                 model = Resource(ID=ID,
                                 Name=item['Title'],
                                 CreationTime=start_utc,
                                 Validity=None,
-                                EntityJSON=item,
+                                EntityJSON=new_item,
                                 Affiliation=my_affiliation,
                                 ProviderID=provider,
                                 Type='PackagedSoftware',

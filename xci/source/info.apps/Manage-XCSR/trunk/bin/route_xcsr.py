@@ -380,16 +380,16 @@ class WarehouseRouter():
                 ID='urn:glue2:Contact:{}:{}'.format(method, p_res['GlobalID'])
 
                 if field == 'ContactEmail':
-                    Name = p_res['Name'] + ' (e-mail)'
+                    Name = p_res['Name'] + ' (by e-mail)'
                     Detail = 'mailto:{}'.format(p_res[field])
                 elif field == 'ContactPhone':
-                    Name = p_res['Name'] + ' (phone)'
+                    Name = p_res['Name'] + ' (by phone)'
                     if p_res[field][:1] == '+':
                         Detail = 'tel:{}'.format(p_res[field])
                     else:
                         Detail = 'tel:+{}'.format(p_res[field])
                 else: # field == 'ContactURL' and for default
-                    Name = p_res['Name'] + ' (web)'
+                    Name = p_res['Name'] + ' (on the web)'
                     Detail = p_res[field]
 
                 try:
@@ -611,7 +611,7 @@ class WarehouseRouter():
             local_id=item['ID']
             ID=item['ID'].replace(':Endpoint:', ':IPFEndpoint:')
             provider='urn:glue2:GlobalResourceProvider:HPC_Provider:{}'.format(item['ResourceID'].split('.', 1)[1])
-            if item['InterfaceName']=='org.globus.GridFTP':
+            if item['InterfaceName']=='org.globus.gridftp':
                 Name='GridFTP data transfer endpoint'
                 Description='Globus GridFTP data transfer endpoint'
                 Keywords='gridftp,data,transfer'
@@ -619,9 +619,13 @@ class WarehouseRouter():
                 Name='GSI OpenSSH login service'
                 Description='Globus GSI OpenSSH remote login service'
                 Keywords='openssh,scp,ssh,login'
+            elif item['InterfaceName']=='org.globus.gram':
+                Name='GRAM5 execution service'
+                Description='Globus GRAM5 remote execution service'
+                Keywords='gram5,job,execution'
             else:
-                Name=''
-                Description=''
+                Name=item['InterfaceName']
+                Description=item['ServiceType'] + ' ' + item['InterfaceName']
                 Keywords=''
             
             new_item = item.copy()
@@ -685,7 +689,7 @@ class WarehouseRouter():
             new_item['record_status'] = 1
             try:
                 model = Resource(ID=ID,
-                                Name=item['AppName'],
+                                Name=item['AppName'] + ' ' + item['AppVersion'],
                                 CreationTime=start_utc,
                                 Validity=None,
                                 EntityJSON=new_item,

@@ -745,10 +745,13 @@ class WarehouseRouter():
             ID='{}:{}:{}:{}'.format(my_idsuffix, item['HostingResourceID'], item['ExecutionHandles'], local_id)
             if item['ScienceGateway'] is not None and len(item['ScienceGateway']) > 0:
                 provider='urn:glue2:GlobalResourceProvider:{}.gateways.xsede.org'.format(item['ScienceGateway'])
+                my_type='GatewaySoftware'
             elif item['HostingResource'] is not None and len(item['HostingResource']) > 0 and len(item['HostingResourceID']) > 0:
                 provider='urn:glue2:GlobalResourceProvider:HPC_Provider:{}'.format(item['HostingResourceID'])
+                my_type='HPCExecutableSoftware'
             else:
                 provider='urn:glue2:GlobalResourceProvider:HPC_Provider:xsede.org'
+                my_type='NetworkService'
             
             new_item = item.copy()
             new_item['record_status'] = 1
@@ -760,7 +763,7 @@ class WarehouseRouter():
                                 EntityJSON=new_item,
                                 Affiliation=my_affiliation,
                                 ProviderID=provider,
-                                Type='ExecutableSoftware',
+                                Type=my_type,
                                 Description=item['Description'],
                                 QualityLevel=item['ServingState'],
                                 LocalID=local_id,

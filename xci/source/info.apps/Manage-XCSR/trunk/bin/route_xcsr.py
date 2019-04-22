@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Router to synchronize XCSR manually entered information into the WAREHOUSE
+# Router to synchronize RSP manually entered information into the WAREHOUSE
 #   Support Contact -> GLUE2
 #       Write_GLUE2Contacts: CSR Support Contacts -> glue2.{AdminDomain,Contact}
 #
@@ -9,6 +9,8 @@
 #            ID_suffix = 'urn:glue2:GlobalResourceProvider:Gateway' + ':' + DrupalNodeid + '.drupal.xsede.org'
 #       Write_HPCProviders: CSR Site Information -> ResourceProviders (including XSEDE)
 #            ID_suffix = 'urn:glue2:GlobalResourceProvider:HPC_Provider' + ':' + SiteID
+#       Write_SupportProviders: CSR Support Contacts -> ResourceProviders (including XSEDE)
+#            ID_suffix = 'urn:glue2:GlobalResourceProvider:Support' + ':' + StandardName
 #
 #   Operational Software, Services -> Resources, Glue2
 #       Write_NetworkService: CSR Operational Software -> Resources
@@ -87,6 +89,7 @@ class WarehouseRouter():
         self.offpeek_sleep = offpeek_sleep * 60 # 60 minutes in seconds during off hours
         self.max_stale = max_stale * 60         # 24 hours in seconds force refresh
         self.application = os.path.basename(__file__)
+        self.memory = {} # For Memory_CONTENT
 
         parser = argparse.ArgumentParser()
         parser.add_argument('daemon_action', nargs='?', choices=('start', 'stop', 'restart'), \
@@ -155,8 +158,8 @@ class WarehouseRouter():
             except:
                 self.logger.error('Step DESTINATION missing or invalid')
                 sys.exit(1)
-            if dsturl.scheme not in ['file', 'analyze', 'warehouse']:
-                self.logger.error('Destination not {file, analyze, warehouse}')
+            if dsturl.scheme not in ['file', 'analyze', 'warehouse', 'memory']:
+                self.logger.error('Destination not {file, analyze, warehouse, memory}')
                 sys.exit(1)
             
             if srcurl.scheme in ['file'] and dsturl.scheme in ['file']:
@@ -218,6 +221,16 @@ class WarehouseRouter():
 
     def Analyze_CONTENT(self, content):
         # Write when needed
+        return(0, '')
+
+    def Memory_CONTENT(self, content, contype, conkey):
+        # Store in memory dictionary for reference by other processing steps
+        self.memory[contype] = {}
+        for item in content[contype]:
+            try:
+                self.memory[contype][item[conkey]] = item
+            except:
+                pass
         return(0, '')
 
     def Write_CACHE(self, file, content):
@@ -293,6 +306,8 @@ class WarehouseRouter():
                     (rc, message) = self.Write_CACHE(s['dsturl'].path, content)
                 elif s['dsturl'].scheme == 'analyze':
                     (rc, message) = self.Analyze_CONTENT(content)
+                elif s['dsturl'].scheme == 'memory':
+                    (rc, message) = self.Memory_CONTENT(content, s['CONTYPE'], s['dsturl'].path)
                 elif s['dsturl'].scheme == 'warehouse':
                     (rc, message) = getattr(self, pa_function)(content, s['CONTYPE'])
                 if not rc and message == '':  # No errors
@@ -442,7 +457,7 @@ class WarehouseRouter():
 
         for item in content[contype]:
             local_id=item['DrupalNodeid'] + '.drupal.xsede.org'
-            ID='{}:{}'.format(my_idsuffix, local_id)
+            ID='{}:{}.{}'.format(my_idsuffix, item['Name'], 'gateways.xsede.org')
 
             try:
                 model = ResourceProvider(ID=ID,
@@ -525,6 +540,57 @@ class WarehouseRouter():
         self.log_target(me)
         return(0, '')
 
+    def Write_SupportProviders(self, content, contype):
+        ####################################
+        ### SupportProvider
+        ####################################
+        me = '{} to SupportProviders'.format(sys._getframe().f_code.co_name)
+        self.HANDLED_DURATIONS[me] = getattr(self.HANDLED_DURATIONS, me, 0)
+        my_idsuffix = 'urn:glue2:GlobalResourceProvider:Support'
+
+        my_affiliation = 'xsede.org'
+        self.cur = {}   # Current items
+        self.new = {}   # New items
+        start_utc = datetime.now(utc)
+
+        for item in ResourceProvider.objects.filter(Affiliation__exact=my_affiliation).filter(ID__startswith=my_idsuffix):
+            self.cur[item.ID] = item
+
+        for item in content[contype]:
+            local_id=item['DrupalNodeid'] + '.drupal.xsede.org'
+            ID='{}:{}'.format(my_idsuffix, item['GlobalID'])
+
+            try:
+                model = ResourceProvider(ID=ID,
+                                Name=item['ShortName'],
+                                CreationTime=start_utc,
+                                Validity=None,
+                                EntityJSON=item,
+                                Affiliation=my_affiliation,
+                                LocalID=local_id,
+                        )
+                model.save()
+                self.logger.debug('{} ID={}'.format(contype, ID))
+                self.new[ID]=model
+                self.STATS.update({me + '.Update'})
+            except (DataError, IntegrityError) as e:
+                msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e.message)
+                self.logger.error(msg)
+                return(False, msg)
+
+        for id in self.cur:
+            if id not in self.new:
+                try:
+                    ResourceProvider.objects.filter(ID=id).delete()
+                    self.STATS.update({me + '.Delete'})
+                    self.logger.info('Deleted ID={}'.format(id))
+                except (DataError, IntegrityError) as e:
+                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e.message))
+
+        self.HANDLED_DURATIONS[me] += (datetime.now(utc) - start_utc).total_seconds()
+        self.log_target(me)
+        return(0, '')
+
     def Write_NetworkService(self, content, contype):
         ####################################
         ### Resource
@@ -546,10 +612,13 @@ class WarehouseRouter():
             eu=urlparse(item['NetworkServiceEndpoints'])
             local_id=item['DrupalNodeid'] + '.drupal.xsede.org'
             ID='{}:{}:{}'.format(my_idsuffix, eu.netloc, local_id)
-            if item['ScienceGateway'] is not None and len(item['ScienceGateway']) > 0:
-                provider='urn:glue2:GlobalResourceProvider:Gateway:{}.gateways.xsede.org'.format(item['ScienceGateway'])
-            elif item['HostingResource'] is not None and len(item['HostingResource']) > 0 and len(item['HostingResourceID']) > 0:
-                provider='urn:glue2:GlobalResourceProvider:HPC_Provider:{}'.format(item['HostingResourceID'])
+            if item['ScienceGatewayName'] is not None and len(item['ScienceGatewayName']) > 0:
+                provider='urn:glue2:GlobalResourceProvider:Gateway:{}.gateways.xsede.org'.format(item['ScienceGatewayName'])
+            elif item['HostingResourceName'] is not None and len(item['HostingResourceName']) > 0 and len(item['HostingResourceID']) > 0:
+                try:
+                    provider='urn:glue2:GlobalResourceProvider:HPC_Provider:{}'.format(self.memory['Resources'][item['HostingResourceID']]['SiteID'])
+                except:
+                    provider='urn:glue2:GlobalResourceProvider:HPC_Provider:{}'.format(item['HostingResourceID'])
             else:
                 provider='urn:glue2:GlobalResourceProvider:HPC_Provider:xsede.org'
 
@@ -743,10 +812,10 @@ class WarehouseRouter():
                 continue
             local_id=item['DrupalNodeid'] + '.drupal.xsede.org'
             ID='{}:{}:{}:{}'.format(my_idsuffix, item['HostingResourceID'], item['ExecutionHandles'], local_id)
-            if item['ScienceGateway'] is not None and len(item['ScienceGateway']) > 0:
-                provider='urn:glue2:GlobalResourceProvider:{}.gateways.xsede.org'.format(item['ScienceGateway'])
+            if item['ScienceGatewayName'] is not None and len(item['ScienceGatewayName']) > 0:
+                provider='urn:glue2:GlobalResourceProvider:Gateway:{}.gateways.xsede.org'.format(item['ScienceGatewayName'])
                 my_type='GatewaySoftware'
-            elif item['HostingResource'] is not None and len(item['HostingResource']) > 0 and len(item['HostingResourceID']) > 0:
+            elif item['HostingResourceName'] is not None and len(item['HostingResourceName']) > 0 and len(item['HostingResourceID']) > 0:
                 provider='urn:glue2:GlobalResourceProvider:HPC_Provider:{}'.format(item['HostingResourceID'])
                 my_type='HPCExecutableSoftware'
             else:
@@ -809,7 +878,7 @@ class WarehouseRouter():
         for item in content[contype]:
             local_id=item['DrupalNodeid'] + '.drupal.xsede.org'
             ID='{}:{}:{}:{}'.format(my_idsuffix, item['Title'], item['Version'], local_id)
-            provider=''
+            provider='urn:glue2:GlobalResourceProvider:Support:{}'.format(item['SupportOrganizationGlobalID'])
             
             new_item = item.copy()
             new_item['record_status'] = 1

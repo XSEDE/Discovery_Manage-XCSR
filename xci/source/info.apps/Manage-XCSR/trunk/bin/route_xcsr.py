@@ -878,7 +878,10 @@ class WarehouseRouter():
         for item in content[contype]:
             local_id=item['DrupalNodeid'] + '.drupal.xsede.org'
             ID='{}:{}:{}:{}'.format(my_idsuffix, item['Title'], item['Version'], local_id)
-            provider='urn:glue2:GlobalResourceProvider:Support:{}'.format(item['SupportOrganizationGlobalID'])
+            if item['SupportOrganizationGlobalID']=='helpdesk.xsede.org':
+                provider='urn:glue2:GlobalResourceProvider:HPC_Provider:xsede.org'
+            else:
+                provider='urn:glue2:GlobalResourceProvider:Support:{}'.format(item['SupportOrganizationGlobalID'])
             
             new_item = item.copy()
             new_item['record_status'] = 1

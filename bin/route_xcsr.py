@@ -9,7 +9,7 @@
 #            ID_suffix = 'urn:glue2:GlobalResourceProvider:Gateway' + ':' + DrupalNodeid + '.drupal.xsede.org'
 #       Write_HPCProviders: CSR Site Information -> ResourceProviders (including XSEDE)
 #            ID_suffix = 'urn:glue2:GlobalResourceProvider:HPC_Provider' + ':' + SiteID
-#       Write_SupportProviders: CSR Support Contacts -> ResourceProviders (including XSEDE)
+#       Write_SupportProviders: CSR Support Contacts -> ResourceProviders
 #            ID_suffix = 'urn:glue2:GlobalResourceProvider:Support' + ':' + StandardName
 #
 #   Operational Software, Services -> Resources, Glue2
@@ -557,6 +557,8 @@ class WarehouseRouter():
             self.cur[item.ID] = item
 
         for item in content[contype]:
+            if item['GlobalID'] == 'helpdesk.xsede.org':    # We're only using HPC_Provider for now
+                continue
             local_id=item['DrupalNodeid'] + '.drupal.xsede.org'
             ID='{}:{}'.format(my_idsuffix, item['GlobalID'])
 

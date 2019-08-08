@@ -12,15 +12,15 @@
 #       Write_SupportProviders: CSR Support Contacts -> ResourceProviders
 #            ID_suffix = 'urn:glue2:GlobalResourceProvider:Support' + ':' + StandardName
 #
-#   Operational Software, Services -> Resources, Glue2
+#   Operational Software, Services, Glue2 -> Resources
 #       Write_NetworkService: CSR Operational Software -> Resources
 #            ID_suffix = 'urn:glue2:NetworkService:XCSR' + ':' + Endpoint + DrupalNodeid + '.drupal.xsede.org'
-#       Write_GLUE2Service: CSR Operational Software -> glue2.{AbstractService, Endpoint}
+#       Write_GLUE2Service: glue2.{AbstractService, Endpoint} -> Resources
 #            ID_suffix = 'urn:glue2:IPFEndpoint' from Resource.ID.replace('Endpoint', 'IPFEndpoint')
 #
 #       Write_OperationalSoftware: CSR Operational Software -> Resources
 #            ID_suffix = 'urn:glue2:ExecutableSoftware' + ':' + HostingResourceID + ':' + ExecutionHandles + ':' + DrupalNodeid + '.drupal.xsede.org'
-#       Write_GLUE2Software: CSR Operational Software -> glue2.{ApplicationEnvironment, ApplicationHandle}
+#       Write_GLUE2Software: glue2.{ApplicationEnvironment, ApplicationHandle} -> Resources
 #            ID_suffix = 'urn:glue2:IPFSoftware' from Resource.ID.replace('ApplicationHandle', 'IPFSoftware')
 #
 #    Packaged Software -> Resources
@@ -768,7 +768,7 @@ class WarehouseRouter():
                                 ProviderID=provider,
                                 Type='ExecutableSoftware',
                                 Description=item['Description'],
-                                QualityLevel='production',
+                                QualityLevel=item.get('SupportStatus', 'production'),
                                 LocalID=local_id,
                                 Keywords=','.join(item['Keywords']),
                         )

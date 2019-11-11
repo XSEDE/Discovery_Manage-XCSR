@@ -1,10 +1,11 @@
+DAEMON_NAME=route_xcsr
 DAEMON_BIN=/soft/warehouse-apps-1.0/Manage-XCSR/PROD/bin/route_xcsr.py
 # Add any command line options for your daemon here
 DAEMON_OPTS="-l info -c /soft/warehouse-apps-1.0/Manage-XCSR/conf/route_xcsr.conf"
 
-PYTHON=python3
+APP_BASE=/soft/warehouse-apps-1.0/Manage-XCSR
 PYTHON_BASE=/soft/python/python-3.7.5-base
-PYTHON_ROOT=/soft/warehouse-apps-1.0/Manage-XCSR/python
-PYTHONPATH=/soft/warehouse-apps-1.0/Manage-XCSR/PROD/lib:/soft/warehouse-1.0/PROD/django_xsede_warehouse
+PIPENV_BASE=/soft/warehouse-apps-1.0/Manage-XCSR/python
+PYTHON_PATH=/soft/warehouse-apps-1.0/Manage-XCSR/PROD/lib:/soft/warehouse-1.0/PROD/django_xsede_warehouse
 DJANGO_CONF=/soft/warehouse-apps-1.0/Manage-XCSR/conf/django_xsede_warehouse.conf
 DJANGO_SETTINGS_MODULE=xsede_warehouse.settings

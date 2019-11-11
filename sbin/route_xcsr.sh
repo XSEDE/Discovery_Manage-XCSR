@@ -1,23 +1,23 @@
 #!/bin/sh
 do_start () {
     echo -n "Starting ${DAEMON_NAME}:"
-    source $PYTHON_ROOT/bin/activate
-    export LD_LIBRARY_PATH=$PYTHON_BASE/lib
-    $PYTHON ${DAEMON_BIN} start ${DAEMON_OPTS}
+    export LD_LIBRARY_PATH=${PYTHON_BASE}/lib
+    source ${PIPENV_BASE}/bin/activate
+    ${PIPENV_BASE}/bin/python ${DAEMON_BIN} start ${DAEMON_OPTS}
     RETVAL=$?
 }
 do_stop () {
     echo -n "Stopping ${DAEMON_NAME}:"
-    source $PYTHON_ROOT/bin/activate
-    export LD_LIBRARY_PATH=$PYTHON_BASE/lib
-    $PYTHON ${DAEMON_BIN} stop ${DAEMON_OPTS}
+    export LD_LIBRARY_PATH=${PYTHON_BASE}/lib
+    source ${PIPENV_BASE}/bin/activate
+    ${PIPENV_BASE}/bin/python ${DAEMON_BIN} stop ${DAEMON_OPTS}
     RETVAL=$?
 }
 do_debug () {
-    echo -n "Debugging: $PYTHON ${DAEMON_BIN} $@ ${DAEMON_OPTS}"
-    source $PYTHON_ROOT/bin/activate
-    export LD_LIBRARY_PATH=$PYTHON_BASE/lib
-    $PYTHON ${DAEMON_BIN} $@ ${DAEMON_OPTS}
+    echo -n "Debugging: ${PIPENV_BASE}/bin/python ${DAEMON_BIN} $@ ${DAEMON_OPTS}"
+    export LD_LIBRARY_PATH=${PYTHON_BASE}/lib
+    source ${PIPENV_BASE}/bin/activate
+    ${PIPENV_BASE}/bin/python ${DAEMON_BIN} $@ ${DAEMON_OPTS}
     RETVAL=$?
 }
 

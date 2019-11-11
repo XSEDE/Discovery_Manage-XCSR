@@ -1,0 +1,41 @@
+{
+    "STEPS": [
+            {   "CONTYPE": "SoftwareSupport",
+                "SOURCE": "https://software.xsede.org/xcsr-db/v1/support-contacts",
+                "DESTINATION": "warehouse:Write_Glue2Contacts"
+            },
+            {   "CONTYPE": "ResourceProvider",
+                "SOURCE": "https://software.xsede.org/xcsr-db/v1/gateways",
+                "DESTINATION_disable": "analyze:",
+                "DESTINATION": "warehouse:Write_GatewayProviders"
+            },
+            {   "CONTYPE": "ResourceProvider",
+                "SOURCE": "https://software.xsede.org/xcsr-db/v1/sites",
+                "DESTINATION": "warehouse:Write_HPCProviders"
+            },
+            {   "CONTYPE": "OperationalSoftware",
+                "SOURCE": "https://software.xsede.org/xcsr-db/v1/operational-software",
+                "DESTINATION": "warehouse:Write_NetworkService"
+            },
+            {   "CONTYPE": "OperationalSoftware",
+                "SOURCE": "https://info.xsede.org/wh1/glue2-views-api/v1/services/?format=json",
+                "DESTINATION": "warehouse:Write_GLUE2Service"
+            },
+            {   "CONTYPE": "OperationalSoftware",
+                "SOURCE": "https://software.xsede.org/xcsr-db/v1/operational-software",
+                "DESTINATION": "warehouse:Write_OperationalSoftware"
+            },
+            {   "CONTYPE": "OperationalSoftware",
+                "SOURCE": "https://info.xsede.org/wh1/warehouse-views/v1/software/?format=json",
+                "DESTINATION": "warehouse:Write_GLUE2Software"
+            },
+            {   "CONTYPE": "PackagedSoftware",
+                "SOURCE": "https://software.xsede.org/xcsr-db/v1/packaged-software",
+                "DESTINATION": "warehouse:Write_PackagedSoftware"
+            }
+    ],
+    "LOG_FILE": "/soft/warehouse-apps-1.0/Manage-XCSR/var/route_xcsr.log",
+    "LOG_LEVEL": "warning",
+    "RUN_DIR": "/soft/warehouse-apps-1.0/Manage-XCSR/var",
+    "PID_FILE": "/soft/warehouse-apps-1.0/Manage-XCSR/var/route_xcsr.pid"
+}

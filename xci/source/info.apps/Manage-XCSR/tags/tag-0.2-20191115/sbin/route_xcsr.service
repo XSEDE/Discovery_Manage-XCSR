@@ -1,0 +1,18 @@
+[Unit]
+Description=Information Services XCSR Content Router 
+After=network.target remote-fs.target nss-lookup.target
+
+[Service]
+Type=forking
+EnvironmentFile=/soft/warehouse-apps-1.0/Manage-XCSR/PROD/sbin/route_xcsr.sysconfig
+ExecStart=/soft/warehouse-apps-1.0/Manage-XCSR/PROD/sbin/route_xcsr.sh start
+ExecReload=/soft/warehouse-apps-1.0/Manage-XCSR/PROD/sbin/route_xcsr.sh restart
+ExecStop=/soft/warehouse-apps-1.0/Manage-XCSR/PROD/sbin/route_xcsr.sh stop
+PIDFile=/soft/warehouse-apps-1.0/Manage-XCSR/var/route_xcsr.pid
+#PrivateTmp=true
+User=software
+Group=admin
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

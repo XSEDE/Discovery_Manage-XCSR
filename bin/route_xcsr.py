@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Router to synchronize RSP manually entered information into the WAREHOUSE
 #   Support Contact -> GLUE2

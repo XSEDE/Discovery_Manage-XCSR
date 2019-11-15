@@ -33,7 +33,7 @@ export LD_LIBRARY_PATH=${PYTHON_BASE}/lib
 PIPENV_BASE=${APP_BASE}/python
 source ${PIPENV_BASE}/bin/activate
 
-PYTHON_BIN=${PIPENV_BASE}/bin/python
+PYTHON_BIN=python3
 
 export PYTHONPATH=${APP_SOURCE}/lib:${WAREHOUSE_SOURCE}/django_xsede_warehouse
 export DJANGO_CONF=${APP_BASE}/conf/django_xsede_warehouse.conf

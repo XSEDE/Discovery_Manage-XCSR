@@ -507,7 +507,7 @@ class WarehouseRouter():
 
         for item in content[contype]:
             local_id=item['DrupalNodeid'] + '.drupal.xsede.org'
-            ID='{}:{}'.format(my_idsuffix, item['SiteId'])
+            ID='{}:{}'.format(my_idsuffix, item['SiteID'])
 
             try:
                 model = ResourceProvider(ID=ID,

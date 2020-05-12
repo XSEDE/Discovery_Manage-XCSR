@@ -337,7 +337,9 @@ class WarehouseRouter():
             self.cur[item.ID] = item
 
         for p_res in content[contype]:
-            ID='urn:glue2:AdminDomain:{}'.format(p_res['GlobalID'])
+#            ID='urn:glue2:AdminDomain:{}'.format(p_res['GlobalID'])
+            # This now matches what is put in Resources V3
+            ID='urn:ogf:glue2:info.xsede.org:resource:rsp:support.organizations:drupalnodeid:{}'.format(p_res['DrupalNodeid'])
             try:
                 self.tag_from_application(p_res)
                 model = AdminDomain(ID=ID,
@@ -392,7 +394,9 @@ class WarehouseRouter():
                     continue
                 method = field_to_method_map[field]
 
-                ID='urn:glue2:Contact:{}:{}'.format(method, p_res['GlobalID'])
+#                ID='urn:glue2:Contact:{}:{}'.format(method, p_res['GlobalID'])
+                # This now matches what is put in Resources V3
+                ID='urn:ogf:glue2:info.xsede.org:resource:rsp:support.organization.contacts:{}:drupalnodeid:{}'.format(method, p_res['DrupalNodeid'])
 
                 if field == 'ContactEmail':
                     Name = p_res['Name'] + ' (by e-mail)'

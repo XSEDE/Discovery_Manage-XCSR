@@ -2,7 +2,7 @@
 #
 # Router to synchronize RSP manually entered information into the WAREHOUSE
 #   Support Contact -> GLUE2
-#       Write_GLUE2Contacts: CSR Support Contacts -> glue2.{AdminDomain,Contact}
+#       Write_Glue2Contacts: CSR Support Contacts -> glue2.{AdminDomain,Contact}
 #
 #   Gateways, Sites -> ResourceProvider
 #       Write_GatewayProviders: CSR Gateways -> ResourceProviders
@@ -340,6 +340,9 @@ class WarehouseRouter():
 #            ID='urn:glue2:AdminDomain:{}'.format(p_res['GlobalID'])
             # This now matches what is put in Resources V3
             ID='urn:ogf:glue2:info.xsede.org:resource:rsp:support.organizations:drupalnodeid:{}'.format(p_res['DrupalNodeid'])
+            desc = p_res['Description']
+            if desc is not None:
+                desc = desc[:128]
             try:
                 self.tag_from_application(p_res)
                 model = AdminDomain(ID=ID,
@@ -347,7 +350,7 @@ class WarehouseRouter():
                                 CreationTime=start_utc,
                                 Validity=None,
                                 EntityJSON=p_res,
-                                Description=p_res['Description'],
+                                Description=desc,
                                 WWW=p_res['ContactURL'],
                                 Owner=p_res['GlobalID'],
                                 )
@@ -356,7 +359,7 @@ class WarehouseRouter():
                 self.new[ID]=model
                 self.STATS.update({me + '.Update'})
             except (DataError, IntegrityError) as e:
-                msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e.message)
+                msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e)
                 self.logger.error(msg)
                 return(False, msg)
 
@@ -367,7 +370,7 @@ class WarehouseRouter():
                     self.STATS.update({me + '.Delete'})
                     self.logger.info('Deleted ID={}'.format(id))
                 except (DataError, IntegrityError) as e:
-                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e.message))
+                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e))
 
         self.HANDLED_DURATIONS[me] += (datetime.now(utc) - start_utc).total_seconds()
         self.log_target(me)
@@ -426,7 +429,7 @@ class WarehouseRouter():
                     self.new[ID]=model
                     self.STATS.update({me + '.Update'})
                 except (DataError, IntegrityError) as e:
-                    msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e.message)
+                    msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e)
                     self.logger.error(msg)
                     return(False, msg)
 
@@ -438,7 +441,7 @@ class WarehouseRouter():
                     self.STATS.update({me + '.Delete'})
                     self.logger.info('Deleted ID={}'.format(id))
                 except (DataError, IntegrityError) as e:
-                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e.message))
+                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e))
 
         self.HANDLED_DURATIONS[me] += (datetime.now(utc) - start_utc).total_seconds()
         self.log_target(me)
@@ -477,7 +480,7 @@ class WarehouseRouter():
                 self.new[ID]=model
                 self.STATS.update({me + '.Update'})
             except (DataError, IntegrityError) as e:
-                msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e.message)
+                msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e)
                 self.logger.error(msg)
                 return(False, msg)
 
@@ -488,7 +491,7 @@ class WarehouseRouter():
                     self.STATS.update({me + '.Delete'})
                     self.logger.info('Deleted ID={}'.format(id))
                 except (DataError, IntegrityError) as e:
-                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e.message))
+                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e))
 
         self.HANDLED_DURATIONS[me] += (datetime.now(utc) - start_utc).total_seconds()
         self.log_target(me)
@@ -527,7 +530,7 @@ class WarehouseRouter():
                 self.new[ID]=model
                 self.STATS.update({me + '.Update'})
             except (DataError, IntegrityError) as e:
-                msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e.message)
+                msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e)
                 self.logger.error(msg)
                 return(False, msg)
 
@@ -538,7 +541,7 @@ class WarehouseRouter():
                     self.STATS.update({me + '.Delete'})
                     self.logger.info('Deleted ID={}'.format(id))
                 except (DataError, IntegrityError) as e:
-                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e.message))
+                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e))
 
         self.HANDLED_DURATIONS[me] += (datetime.now(utc) - start_utc).total_seconds()
         self.log_target(me)
@@ -580,7 +583,7 @@ class WarehouseRouter():
                 self.new[ID]=model
                 self.STATS.update({me + '.Update'})
             except (DataError, IntegrityError) as e:
-                msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e.message)
+                msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e)
                 self.logger.error(msg)
                 return(False, msg)
 
@@ -591,7 +594,7 @@ class WarehouseRouter():
                     self.STATS.update({me + '.Delete'})
                     self.logger.info('Deleted ID={}'.format(id))
                 except (DataError, IntegrityError) as e:
-                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e.message))
+                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e))
 
         self.HANDLED_DURATIONS[me] += (datetime.now(utc) - start_utc).total_seconds()
         self.log_target(me)
@@ -649,7 +652,7 @@ class WarehouseRouter():
                 self.new[ID]=model
                 self.STATS.update({me + '.Update'})
             except (DataError, IntegrityError) as e:
-                msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e.message)
+                msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e)
                 self.logger.error(msg)
                 return(False, msg)
 
@@ -660,7 +663,7 @@ class WarehouseRouter():
                     self.STATS.update({me + '.Delete'})
                     self.logger.info('Deleted ID={}'.format(id))
                 except (DataError, IntegrityError) as e:
-                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e.message))
+                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e))
 
         self.HANDLED_DURATIONS[me] += (datetime.now(utc) - start_utc).total_seconds()
         self.log_target(me)
@@ -724,7 +727,7 @@ class WarehouseRouter():
                 self.new[ID]=model
                 self.STATS.update({me + '.Update'})
             except (DataError, IntegrityError) as e:
-                msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e.message)
+                msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e)
                 self.logger.error(msg)
                 return(False, msg)
 
@@ -735,7 +738,7 @@ class WarehouseRouter():
                     self.STATS.update({me + '.Delete'})
                     self.logger.info('Deleted ID={}'.format(id))
                 except (DataError, IntegrityError) as e:
-                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e.message))
+                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e))
 
         self.HANDLED_DURATIONS[me] += (datetime.now(utc) - start_utc).total_seconds()
         self.log_target(me)
@@ -781,7 +784,7 @@ class WarehouseRouter():
                 self.new[ID]=model
                 self.STATS.update({me + '.Update'})
             except (DataError, IntegrityError) as e:
-                msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e.message)
+                msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e)
                 self.logger.error(msg)
                 return(False, msg)
 
@@ -792,7 +795,7 @@ class WarehouseRouter():
                     self.STATS.update({me + '.Delete'})
                     self.logger.info('Deleted ID={}'.format(id))
                 except (DataError, IntegrityError) as e:
-                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e.message))
+                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e))
 
         self.HANDLED_DURATIONS[me] += (datetime.now(utc) - start_utc).total_seconds()
         self.log_target(me)
@@ -849,7 +852,7 @@ class WarehouseRouter():
                 self.new[ID]=model
                 self.STATS.update({me + '.Update'})
             except (DataError, IntegrityError) as e:
-                msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e.message)
+                msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e)
                 self.logger.error(msg)
                 return(False, msg)
 
@@ -860,7 +863,7 @@ class WarehouseRouter():
                     self.STATS.update({me + '.Delete'})
                     self.logger.info('Deleted ID={}'.format(id))
                 except (DataError, IntegrityError) as e:
-                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e.message))
+                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e))
 
         self.HANDLED_DURATIONS[me] += (datetime.now(utc) - start_utc).total_seconds()
         self.log_target(me)
@@ -910,7 +913,7 @@ class WarehouseRouter():
                 self.new[ID]=model
                 self.STATS.update({me + '.Update'})
             except (DataError, IntegrityError) as e:
-                msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e.message)
+                msg = '{} saving ID={}: {}'.format(type(e).__name__, ID, e)
                 self.logger.error(msg)
                 return(False, msg)
 
@@ -921,7 +924,7 @@ class WarehouseRouter():
                     self.STATS.update({me + '.Delete'})
                     self.logger.info('Deleted ID={}'.format(id))
                 except (DataError, IntegrityError) as e:
-                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e.message))
+                    self.logger.error('{} deleting ID={}: {}'.format(type(e).__name__, id, e))
 
         self.HANDLED_DURATIONS[me] += (datetime.now(utc) - start_utc).total_seconds()
         self.log_target(me)

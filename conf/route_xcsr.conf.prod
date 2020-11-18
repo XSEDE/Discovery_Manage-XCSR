@@ -1,4 +1,8 @@
 {
+    "LOG_FILE": "/soft/warehouse-apps-1.0/Manage-XCSR/var/route_xcsr.log",
+    "LOG_LEVEL": "warning",
+    "RUN_DIR": "/soft/warehouse-apps-1.0/Manage-XCSR/var",
+    "PID_FILE": "/soft/warehouse-apps-1.0/Manage-XCSR/var/route_xcsr.pid",
     "STEPS": [
             {   "CONTYPE": "SoftwareSupport",
                 "SOURCE": "https://software.xsede.org/xcsr-db/v1/support-contacts",
@@ -33,9 +37,5 @@
                 "SOURCE": "https://software.xsede.org/xcsr-db/v1/packaged-software",
                 "DESTINATION": "warehouse:Write_PackagedSoftware"
             }
-    ],
-    "LOG_FILE": "/soft/warehouse-apps-1.0/Manage-XCSR/var/route_xcsr.log",
-    "LOG_LEVEL": "warning",
-    "RUN_DIR": "/soft/warehouse-apps-1.0/Manage-XCSR/var",
-    "PID_FILE": "/soft/warehouse-apps-1.0/Manage-XCSR/var/route_xcsr.pid"
+    ]
 }

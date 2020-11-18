@@ -33,22 +33,19 @@
 #  ...
 import argparse
 from collections import Counter
-import datetime
 from datetime import datetime, tzinfo, timedelta
-try:
-    import http.client as httplib
-except ImportError:
-    import httplib
+import http.client as httplib
 import json
 import logging
 import logging.handlers
 import os
+from pid import PidFile
 import pwd
 import re
 import shutil
 import signal
 import ssl
-import sys
+import sys, traceback
 from time import sleep
 from urllib.parse import urlparse
 
@@ -60,9 +57,8 @@ from django.utils.dateparse import parse_datetime
 from glue2_db.models import *
 from resource_cat.models import *
 from processing_status.process import ProcessingActivity
-import pdb
 
-from daemon import runner
+import pdb
 
 class UTC(tzinfo):
     def utcoffset(self, dt):
@@ -73,73 +69,86 @@ class UTC(tzinfo):
         return timedelta(0)
 utc = UTC()
 
+# Used during initialization before loggin is enabled
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
-class WarehouseRouter():
-    def __init__(self, peek_sleep=10, offpeek_sleep=60, max_stale=24 * 60):
-        self.args = None
-        self.config = {}
-        self.src = {}
-        self.dest = {}
-        for var in ['uri', 'scheme', 'path']: # Where <full> contains <type>:<obj>
-            self.src[var] = None
-            self.dest[var] = None
-        self.peak_sleep = peek_sleep * 60       # 10 minutes in seconds during peak business hours
-        self.offpeek_sleep = offpeek_sleep * 60 # 60 minutes in seconds during off hours
-        self.max_stale = max_stale * 60         # 24 hours in seconds force refresh
-        self.application = os.path.basename(__file__)
-        self.memory = {} # For Memory_CONTENT
-
+class Router():
+    def __init__(self):
         parser = argparse.ArgumentParser()
-        parser.add_argument('daemon_action', nargs='?', choices=('start', 'stop', 'restart'), \
+        parser.add_argument('daemonaction', nargs='?', choices=('start', 'stop', 'restart'), \
                             help='{start, stop, restart} daemon')
+        parser.add_argument('--daemon', action='store_true', \
+                            help='Daemonize execution')
         parser.add_argument('-l', '--log', action='store', \
                             help='Logging level (default=warning)')
         parser.add_argument('-c', '--config', action='store', dest='config', required=True, \
                             help='Configuration file')
-        parser.add_argument('--verbose', action='store_true', \
-                            help='Verbose output')
-        parser.add_argument('--daemon', action='store_true', \
-                            help='Daemonize execution')
         parser.add_argument('--pdb', action='store_true', \
                             help='Run with Python debugger')
         self.args = parser.parse_args()
 
+        # Trace for debugging as early as possible
         if self.args.pdb:
             pdb.set_trace()
 
         # Load configuration file
-        config_path = os.path.abspath(self.args.config)
+        self.config_file = os.path.abspath(self.args.config)
         try:
-            with open(config_path, 'r') as file:
+            with open(self.config_file, 'r') as file:
                 conf=file.read()
         except IOError as e:
-            raise
+            eprint('Error "{}" reading config={}'.format(e, config_path))
+            sys.exit(1)
         try:
             self.config = json.loads(conf)
         except ValueError as e:
             eprint('Error "{}" parsing config={}'.format(e, config_path))
             sys.exit(1)
 
-        # Initialize logging from arguments, or config file, or default to WARNING as last resort
-        numeric_log = None
-        if self.args.log is not None:
-            numeric_log = getattr(logging, self.args.log.upper(), None)
-        if numeric_log is None and 'LOG_LEVEL' in self.config:
-            numeric_log = getattr(logging, self.config['LOG_LEVEL'].upper(), None)
-        if numeric_log is None:
-            numeric_log = getattr(logging, 'WARNING', None)
-        if not isinstance(numeric_log, int):
-            raise ValueError('Invalid log level: {}'.format(numeric_log))
+        if self.config.get('PID_FILE'):
+            self.pidfile_path =  self.config['PID_FILE']
+        else:
+            name = os.path.basename(__file__).replace('.py', '')
+            self.pidfile_path = '/var/run/{}/{}.pid'.format(name, name)
+
+    def Setup(self, peak_sleep=10, offpeak_sleep=60, max_stale=24 * 60):
+        # Initialize log level from arguments, or config file, or default to WARNING
+        loglevel_str = (self.args.log or self.config.get('LOG_LEVEL', 'WARNING')).upper()
+        loglevel_num = getattr(logging, loglevel_str, None)
         self.logger = logging.getLogger('DaemonLog')
-        self.logger.setLevel(numeric_log)
+        self.logger.setLevel(loglevel_num)
         self.formatter = logging.Formatter(fmt='%(asctime)s.%(msecs)03d %(levelname)s %(message)s', \
                                            datefmt='%Y/%m/%d %H:%M:%S')
-        self.handler = logging.handlers.TimedRotatingFileHandler(self.config['LOG_FILE'], when='W6', \
-                                                                 backupCount=999, utc=True)
+        self.handler = logging.handlers.TimedRotatingFileHandler(self.config['LOG_FILE'], \
+            when='W6', backupCount=999, utc=True)
         self.handler.setFormatter(self.formatter)
         self.logger.addHandler(self.handler)
+
+        # Initialize stdout, stderr
+        if self.args.daemon and 'LOG_FILE' in self.config:
+            self.stdout_path = self.config['LOG_FILE'].replace('.log', '.daemon.log')
+            self.stderr_path = self.stdout_path
+            self.SaveDaemonStdOut(self.stdout_path)
+            sys.stdout = open(self.stdout_path, 'wt+')
+            sys.stderr = open(self.stderr_path, 'wt+')
+
+        signal.signal(signal.SIGINT, self.exit_signal)
+        signal.signal(signal.SIGTERM, self.exit_signal)
+
+        self.logger.info('Starting program=%s pid=%s, uid=%s(%s)' % \
+                     (os.path.basename(__file__), os.getpid(), os.geteuid(), pwd.getpwuid(os.geteuid()).pw_name))
+
+        self.src = {}
+        self.dest = {}
+        for var in ['uri', 'scheme', 'path']: # Where <full> contains <type>:<obj>
+            self.src[var] = None
+            self.dest[var] = None
+        self.peak_sleep = peak_sleep * 60       # 10 minutes in seconds during peak business hours
+        self.offpeak_sleep = offpeak_sleep * 60 # 60 minutes in seconds during off hours
+        self.max_stale = max_stale * 60         # 24 hours in seconds force refresh
+        self.application = os.path.basename(__file__)
+        self.memory = {} # For Memory_CONTENT
 
         self.steps = []
         show_warehouse = None
@@ -148,58 +157,59 @@ class WarehouseRouter():
                 srcurl = urlparse(s['SOURCE'])
             except:
                 self.logger.error('Step SOURCE missing or invalid')
-                sys.exit(1)
+                self.exit(1)
             if srcurl.scheme not in ['file', 'http', 'https']:
                 self.logger.error('Source not {file, http, https}')
-                sys.exit(1)
+                self.exit(1)
             
             try:
                 dsturl = urlparse(s['DESTINATION'])
             except:
                 self.logger.error('Step DESTINATION missing or invalid')
-                sys.exit(1)
+                self.exit(1)
             if dsturl.scheme not in ['file', 'analyze', 'warehouse', 'memory']:
                 self.logger.error('Destination not {file, analyze, warehouse, memory}')
-                sys.exit(1)
+                self.exit(1)
             
             if srcurl.scheme in ['file'] and dsturl.scheme in ['file']:
                 self.logger.error('Source and Destination can not both be a {file}')
-                sys.exit(1)
-            
+                self.exit(1)
+                
             if dsturl.scheme == 'warehouse' and not show_warehouse:
                 show_warehouse = settings.DATABASES['default']['HOST']
             self.steps.append({'srcurl': srcurl, 'dsturl': dsturl, 'CONTYPE': s['CONTYPE']})
 
-#        if self.args.daemon_action == 'start':
-#            if self.src['scheme'] not in ['http', 'https'] or self.dest['scheme'] not in ['warehouse']:
-#                self.logger.error('Can only daemonize when source=[http|https] and destination=warehouse')
-#                sys.exit(1)
-
-        if self.args.daemon_action:
-            mode = 'daemon({})'.format(self.args.daemon_action)
-            # Initialize logging, pidfile
-            self.stdin_path = '/dev/null'
-            if 'LOG_FILE' in self.config:
-                self.stdout_path = self.config['LOG_FILE'].replace('.log', '.daemon.log')
-                self.stderr_path = self.stdout_path
-            else:
-                self.stdout_path = '/dev/tty'
-                self.stderr_path = '/dev/tty'
-            self.SaveDaemonLog(self.stdout_path)
-            self.pidfile_timeout = 5
-            if 'PID_FILE' in self.config:
-                self.pidfile_path =  self.config['PID_FILE']
-            else:
-                name = os.path.basename(__file__).replace('.py', '')
-                self.pidfile_path = '/var/run/{}/{}.pid'.format(name ,name)
-        else:
-            mode = 'interactive'
-
-        signal.signal(signal.SIGINT, self.exit_signal)
-        signal.signal(signal.SIGTERM, self.exit_signal)
-        self.logger.info('Starting {}, program={}, pid={}, uid={}({})'.format(mode, os.path.basename(__file__), os.getpid(), os.geteuid(), pwd.getpwuid(os.geteuid()).pw_name))
+# Each step has their own source and destination
+#        self.logger.info('Source: ' + self.src['display'])
+#        self.logger.info('Destination: ' + self.dest['display'])
+        self.logger.info('Config: ' + self.config_file)
+ 
         if show_warehouse:
             self.logger.info('Destination warehouse database={}'.format(settings.DATABASES['default']['HOST']))
+
+    def SaveDaemonStdOut(self, path):
+        # Save daemon log file using timestamp only if it has anything unexpected in it
+        try:
+            file = open(path, 'r')
+            lines = file.read()
+            file.close()
+            if not re.match("^started with pid \d+$", lines) and not re.match("^$", lines):
+                ts = datetime.strftime(datetime.now(), '%Y-%m-%d_%H:%M:%S')
+                newpath = '{}.{}'.format(path, ts)
+                self.logger.debug('Saving previous daemon stdout to {}'.format(newpath))
+                shutil.copy(path, newpath)
+        except Exception as e:
+            self.logger.error('Exception in SaveDaemonStdOut({})'.format(path))
+        return
+
+    def exit_signal(self, signum, frame):
+        self.logger.critical('Caught signal={}({}), exiting with rc={}'.format(signum, signal.Signals(signum).name, signum))
+        sys.exit(signum)
+
+    def exit(self, rc):
+        if rc:
+            self.logger.error('Exiting with rc={}'.format(rc))
+        sys.exit(rc)
 
     def Get_HTTP(self, url, contype):
         headers = {}
@@ -252,35 +262,16 @@ class WarehouseRouter():
             self.logger.error('Error "{}" parsing file={}'.format(e, file))
             sys.exit(1)
 
-    def SaveDaemonLog(self, path):
-        # Save daemon log file using timestamp only if it has anything unexpected in it
-        try:
-            with open(path, 'r') as file:
-                lines=file.read()
-                file.close()
-                if not re.match("^started with pid \d+$", lines) and not re.match("^$", lines):
-                    ts = datetime.strftime(datetime.now(), '%Y-%m-%d_%H:%M:%S')
-                    newpath = '{}.{}'.format(path, ts)
-                    shutil.copy(path, newpath)
-                    print('SaveDaemonLog as {}'.format(newpath))
-        except Exception as e:
-            print('Exception in SaveDaemonLog({})'.format(path))
-        return
-
-    def exit_signal(self, signal, frame):
-        self.logger.critical('Caught signal={}, exiting...'.format(signal))
-        sys.exit(0)
-
     def smart_sleep(self, last_run):
         # This functions sleeps
         if 12 <= datetime.now(utc).hour <= 24: # Between 6 AM and 6 PM Central (~12 to 24 UTC)
             current_sleep = self.peak_sleep
         else:
-            current_sleep = self.offpeek_sleep
+            current_sleep = self.offpeak_sleep
         self.logger.debug('sleep({})'.format(current_sleep))
         sleep(current_sleep)
 
-    def run(self):
+    def Run(self):
         while True:
             self.STATS = Counter()
             self.HANDLED_DURATIONS = {}
@@ -314,7 +305,7 @@ class WarehouseRouter():
                     message = 'Processed {} in {:.3f}/seconds'.format(pa_function, (datetime.now(utc) - start_utc).total_seconds())
                 pa.FinishActivity(rc, message)
      
-            if not self.args.daemon_action:
+            if not self.args.daemonaction:
                 break
             self.smart_sleep(start_utc)
                 
@@ -337,7 +328,6 @@ class WarehouseRouter():
             self.cur[item.ID] = item
 
         for p_res in content[contype]:
-#            ID='urn:glue2:AdminDomain:{}'.format(p_res['GlobalID'])
             # This now matches what is put in Resources V3
             ID='urn:ogf:glue2:info.xsede.org:resource:rsp:support.organizations:drupalnodeid:{}'.format(p_res['DrupalNodeid'])
             desc = p_res['Description']
@@ -397,7 +387,6 @@ class WarehouseRouter():
                     continue
                 method = field_to_method_map[field]
 
-#                ID='urn:glue2:Contact:{}:{}'.format(method, p_res['GlobalID'])
                 # This now matches what is put in Resources V3
                 ID='urn:ogf:glue2:info.xsede.org:resource:rsp:support.organization.contacts:{}:drupalnodeid:{}'.format(method, p_res['DrupalNodeid'])
 
@@ -943,13 +932,14 @@ class WarehouseRouter():
 ########## CUSTOMIZATIONS END ##########
 
 if __name__ == '__main__':
-    router = WarehouseRouter()
-    if router.args.daemon_action is None:   # Interactive execution, just call the run function
-        myrouter = router.run()
-        sys.exit(0)
-    
-    # Daemon execution
-    daemon_runner = runner.DaemonRunner(router)
-    daemon_runner.daemon_context.files_preserve=[router.handler.stream]
-    daemon_runner.daemon_context.working_directory=router.config['RUN_DIR']
-    daemon_runner.do_action()
+    router = Router()
+    with PidFile(router.pidfile_path):
+        try:
+            router.Setup()
+            rc = router.Run()
+        except Exception as e:
+            msg = '{} Exception: {}'.format(type(e).__name__, e)
+            router.logger.error(msg)
+            traceback.print_exc(file=sys.stdout)
+            rc = 1
+    router.exit(rc)

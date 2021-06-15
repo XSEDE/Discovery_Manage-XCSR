@@ -29,6 +29,8 @@
 #
 # Author: JP Navarro, September 2018
 #
+# DISABLED and RETIRED early in 2021 when XSEDE switched from Resources to Resources V3
+#
 # TODO:
 #  ...
 import argparse
@@ -932,6 +934,8 @@ class Router():
 ########## CUSTOMIZATIONS END ##########
 
 if __name__ == '__main__':
+    eprint('Exiting: OBSOLETE')
+    sys.exit(1)
     router = Router()
     with PidFile(router.pidfile_path):
         try:

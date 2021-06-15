@@ -1,3 +1,6 @@
+tag-0.5-20210615 JP
+  - Disabled and Retired. XSEDE now uses Resources V3
+
 tag-0.5-20200908 JP
   - Truncate AdminDomain.Description to 128
   - Fix exception handling display message

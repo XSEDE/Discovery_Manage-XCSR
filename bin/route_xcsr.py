@@ -337,15 +337,17 @@ class Router():
                 desc = desc[:128]
             try:
                 self.tag_from_application(p_res)
-                model = AdminDomain(ID=ID,
-                                Name=p_res['Name'],
-                                CreationTime=start_utc,
-                                Validity=None,
-                                EntityJSON=p_res,
-                                Description=desc,
-                                WWW=p_res['ContactURL'],
-                                Owner=p_res['GlobalID'],
-                                )
+                model, created = AdminDomain.objects.update_or_create(
+                                    ID=ID,
+                                    defaults = {
+                                        'Name': p_res['Name'],
+                                        'CreationTime': start_utc,
+                                        'Validity': None,
+                                        'EntityJSON': p_res,
+                                        'Description': desc,
+                                        'WWW': p_res['ContactURL'],
+                                        'Owner': p_res['GlobalID'],
+                                    })
                 model.save()
                 self.logger.debug('{} ID={}'.format(contype, ID))
                 self.new[ID]=model
@@ -407,14 +409,16 @@ class Router():
 
                 try:
                     self.tag_from_application(p_res)
-                    model = Contact(ID=ID,
-                                    Name=Name,
-                                    CreationTime=start_utc,
-                                    Validity=None,
-                                    EntityJSON=p_res,
-                                    Detail=Detail,
-                                    Type=method,
-                                    )
+                    model, created = Contact.objects.update_or_create(
+                                        ID=ID,
+                                        defaults = {
+                                            'Name': Name,
+                                            'CreationTime': start_utc,
+                                            'Validity': None,
+                                            'EntityJSON': p_res,
+                                            'Detail': Detail,
+                                            'Type': method
+                                        })
                     model.save()
                     self.logger.debug('{} ID={}'.format(contype, ID))
                     self.new[ID]=model
@@ -458,14 +462,16 @@ class Router():
             ID='{}:{}.{}'.format(my_idsuffix, item['Name'], 'gateways.xsede.org')
 
             try:
-                model = ResourceProvider(ID=ID,
-                                Name=item['Name'],
-                                CreationTime=start_utc,
-                                Validity=None,
-                                EntityJSON=item,
-                                Affiliation=my_affiliation,
-                                LocalID=local_id,
-                        )
+                model, created = ResourceProvider.objects.update_or_create(
+                                    ID=ID,
+                                    defaults = {
+                                        'Name': item['Name'],
+                                        'CreationTime': start_utc,
+                                        'Validity': None,
+                                        'EntityJSON': item,
+                                        'Affiliation': my_affiliation,
+                                        'LocalID': local_id
+                                    })
                 model.save()
                 self.logger.debug('{} ID={}'.format(contype, ID))
                 self.new[ID]=model
@@ -508,14 +514,16 @@ class Router():
             ID='{}:{}'.format(my_idsuffix, item['SiteID'])
 
             try:
-                model = ResourceProvider(ID=ID,
-                                Name=item['Name'],
-                                CreationTime=start_utc,
-                                Validity=None,
-                                EntityJSON=item,
-                                Affiliation=my_affiliation,
-                                LocalID=local_id,
-                        )
+                model, created = ResourceProvider.objects.update_or_create(
+                                    ID=ID,
+                                    defaults = {
+                                        'Name': item['Name'],
+                                        'CreationTime': start_utc,
+                                        'Validity': None,
+                                        'EntityJSON': item,
+                                        'Affiliation': my_affiliation,
+                                        'LocalID': local_id
+                                    })
                 model.save()
                 self.logger.debug('{} ID={}'.format(contype, ID))
                 self.new[ID]=model
@@ -561,14 +569,16 @@ class Router():
             ID='{}:{}'.format(my_idsuffix, item['GlobalID'])
 
             try:
-                model = ResourceProvider(ID=ID,
-                                Name=item['ShortName'],
-                                CreationTime=start_utc,
-                                Validity=None,
-                                EntityJSON=item,
-                                Affiliation=my_affiliation,
-                                LocalID=local_id,
-                        )
+                model, created = ResourceProvider.objects.update_or_create(
+                                    ID=ID,
+                                    defaults = {
+                                        'Name': item['ShortName'],
+                                        'CreationTime': start_utc,
+                                        'Validity': None,
+                                        'EntityJSON': item,
+                                        'Affiliation': my_affiliation,
+                                        'LocalID': local_id
+                                    })
                 model.save()
                 self.logger.debug('{} ID={}'.format(contype, ID))
                 self.new[ID]=model
@@ -625,19 +635,21 @@ class Router():
             new_item = item.copy()
             new_item['record_status'] = 1
             try:
-                model = Resource(ID=ID,
-                                Name=item['Title'],
-                                CreationTime=start_utc,
-                                Validity=None,
-                                EntityJSON=new_item,
-                                Affiliation=my_affiliation,
-                                ProviderID=provider,
-                                Type='NetworkService',
-                                Description=item['Description'],
-                                QualityLevel=item['ServingState'],
-                                LocalID=local_id,
-                                Keywords=item['Keywords'],
-                        )
+                model, created = Resource.objects.update_or_create(
+                                    ID=ID,
+                                    defaults = {
+                                        'Name': item['Title'],
+                                        'CreationTime': start_utc,
+                                        'Validity': None,
+                                        'EntityJSON': new_item,
+                                        'Affiliation': my_affiliation,
+                                        'ProviderID': provider,
+                                        'Type': 'NetworkService',
+                                        'Description': item['Description'],
+                                        'QualityLevel': item['ServingState'],
+                                        'LocalID': local_id,
+                                        'Keywords': item['Keywords']
+                                    })
                 model.save()
                 self.logger.debug('{} ID={}'.format(contype, ID))
                 self.new[ID]=model
@@ -700,19 +712,21 @@ class Router():
             new_item = item.copy()
             new_item['record_status'] = 1
             try:
-                model = Resource(ID=ID,
-                                Name=Name,
-                                CreationTime=start_utc,
-                                Validity=None,
-                                EntityJSON=new_item,
-                                Affiliation=my_affiliation,
-                                ProviderID=provider,
-                                Type='NetworkService',
-                                Description=Description,
-                                QualityLevel=item['QualityLevel'],
-                                LocalID=local_id,
-                                Keywords=Keywords,
-                        )
+                model, created = Resource.objects.update_or_create(
+                                    ID=ID,
+                                    defaults = {
+                                        'Name': Name,
+                                        'CreationTime': start_utc,
+                                        'Validity': None,
+                                        'EntityJSON': new_item,
+                                        'Affiliation': my_affiliation,
+                                        'ProviderID': provider,
+                                        'Type': 'NetworkService',
+                                        'Description': Description,
+                                        'QualityLevel': item['QualityLevel'],
+                                        'LocalID': local_id,
+                                        'Keywords': Keywords
+                                    })
                 model.save()
                 self.logger.debug('{} ID={}'.format(contype, ID))
                 self.new[ID]=model
@@ -757,19 +771,21 @@ class Router():
             new_item = item.copy()
             new_item['record_status'] = 1
             try:
-                model = Resource(ID=ID,
-                                Name=item['AppName'] + ' ' + item['AppVersion'],
-                                CreationTime=start_utc,
-                                Validity=None,
-                                EntityJSON=new_item,
-                                Affiliation=my_affiliation,
-                                ProviderID=provider,
-                                Type='ExecutableSoftware',
-                                Description=item['Description'],
-                                QualityLevel=item.get('SupportStatus', 'production'),
-                                LocalID=local_id,
-                                Keywords=','.join(item['Keywords']),
-                        )
+                model, created = Resource.objects.update_or_create(
+                                    ID=ID,
+                                    defaults = {
+                                        'Name': item['AppName'] + ' ' + item['AppVersion'],
+                                        'CreationTime': start_utc,
+                                        'Validity': None,
+                                        'EntityJSON': new_item,
+                                        'Affiliation': my_affiliation,
+                                        'ProviderID': provider,
+                                        'Type': 'ExecutableSoftware',
+                                        'Description': item['Description'],
+                                        'QualityLevel': item.get('SupportStatus', 'production'),
+                                        'LocalID': local_id,
+                                        'Keywords': ','.join(item['Keywords'])
+                                    })
                 model.save()
                 self.logger.debug('{} ID={}'.format(contype, ID))
                 self.new[ID]=model
@@ -825,19 +841,21 @@ class Router():
             new_item = item.copy()
             new_item['record_status'] = 1
             try:
-                model = Resource(ID=ID,
-                                Name=item['Title'],
-                                CreationTime=start_utc,
-                                Validity=None,
-                                EntityJSON=new_item,
-                                Affiliation=my_affiliation,
-                                ProviderID=provider,
-                                Type=my_type,
-                                Description=item['Description'],
-                                QualityLevel=item['ServingState'],
-                                LocalID=local_id,
-                                Keywords=item['Keywords'],
-                        )
+                model, created = Resource.objects.update_or_create(
+                                    ID=ID,
+                                    defaults = {
+                                        'Name': item['Title'],
+                                        'CreationTime': start_utc,
+                                        'Validity': None,
+                                        'EntityJSON': new_item,
+                                        'Affiliation': my_affiliation,
+                                        'ProviderID': provider,
+                                        'Type': my_type,
+                                        'Description': item['Description'],
+                                        'QualityLevel': item['ServingState'],
+                                        'LocalID': local_id,
+                                        'Keywords': item['Keywords']
+                                    })
                 model.save()
                 self.logger.debug('{} ID={}'.format(contype, ID))
                 self.new[ID]=model
@@ -886,19 +904,21 @@ class Router():
             new_item = item.copy()
             new_item['record_status'] = 1
             try:
-                model = Resource(ID=ID,
-                                Name=item['Title'],
-                                CreationTime=start_utc,
-                                Validity=None,
-                                EntityJSON=new_item,
-                                Affiliation=my_affiliation,
-                                ProviderID=provider,
-                                Type='PackagedSoftware',
-                                Description=item['Description'],
-                                QualityLevel=item['DeclaredStatus'],
-                                LocalID=local_id,
-                                Keywords=item['Keywords'],
-                        )
+                model, created = Resource.objects.update_or_create(
+                                    ID=ID,
+                                    defaults = {
+                                        'Name': item['Title'],
+                                        'CreationTime': start_utc,
+                                        'Validity': None,
+                                        'EntityJSON': new_item,
+                                        'Affiliation': my_affiliation,
+                                        'ProviderID': provider,
+                                        'Type': 'PackagedSoftware',
+                                        'Description': item['Description'],
+                                        'QualityLevel': item['DeclaredStatus'],
+                                        'LocalID': local_id,
+                                        'Keywords': item['Keywords']
+                                    })
                 model.save()
                 self.logger.debug('{} ID={}'.format(contype, ID))
                 self.new[ID]=model
